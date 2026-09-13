@@ -1,5 +1,7 @@
+:root { --sidebar: 220px; }
+
 .sidebar {
-  --sidebar-pad: 14px;
+  --sidebar-pad: 11px;
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 50;
@@ -257,8 +259,8 @@
   box-shadow: 0 6px 18px rgba(0,0,0,.38), 0 0 16px rgba(28, 177, 216, .08);
 }
 .collapse-button svg { width: 13px; fill: none; stroke: #79bace; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.sidebar-collapsed .sidebar { width: 76px; padding: 0 10px; }
-.sidebar-collapsed .app-main { margin-left: 76px; }
+.sidebar-collapsed .sidebar { width: 68px; padding: 0 8px; }
+.sidebar-collapsed .app-main { margin-left: 68px; }
 .sidebar-collapsed .brand { justify-content: center; padding: 0; }
 .sidebar-collapsed .brand-emblem {
   flex-basis: 50px;
@@ -345,4 +347,8 @@
   .sidebar-collapsed .sidebar nav button::after { display: none; }
   .sidebar-collapsed .investigator-profile { justify-content: flex-start; padding: 8px 7px 0; }
   .sidebar-collapse-area { display: none; }
+}
+
+@media(max-width:1250px) and (min-width:981px) {
+  :root { --sidebar: 200px; }
 }

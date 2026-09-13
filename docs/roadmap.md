@@ -1,6 +1,6 @@
 # Traceveil Roadmap
 
-> Current software status (9 September 2026): 114 of 164 roadmap items are complete. The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, and case-analysis UX are implemented. Real-time browser delivery, the remaining AI workflows, and physical hardware acceptance remain tracked separately.
+> Current software status (12 September 2026): 145 of 176 roadmap items are complete (82.4%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, and grounded local-AI investigation chat are implemented. The 31 remaining items are confined to real-time browser delivery, reporting automation, and physical hardware acceptance.
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
@@ -169,27 +169,67 @@ genuine live ingestion, real-time delivery, and historical review of genuine liv
 incidents are acceptance dependencies of Steps 5 and 7, not Step 8.
 
 ## 9. Visualization Engine + Qwen
-- [ ] Create allowed visualization components
-- [ ] Create and validate versioned layout JSON
-- [ ] Allow only deterministic data references
-- [ ] Let Qwen summarize validated results
-- [ ] Let Qwen choose safe visualization layouts
-- [ ] Reject unknown components and fields
-- [ ] Reject invented numerical values
-- [ ] Reject unsafe output
-- [ ] Add deterministic fallback layouts
-- [ ] Support visualization of both historical and live investigation data
+- [x] Create allowed visualization components
+- [x] Create and validate versioned layout JSON
+- [x] Allow only deterministic data references
+- [x] Let Qwen summarize validated results
+- [x] Let Qwen choose safe visualization layouts
+- [x] Reject unknown components and fields
+- [x] Reject invented numerical values
+- [x] Reject unsafe output
+- [x] Add deterministic fallback layouts
+- [x] Support visualization of both historical and live investigation data
+- [x] Offer a focused analysis set: timeline, event activity, top entities, severity mix, entity relationships, and top findings
+- [x] Route Automatic mode deterministically from the investigation question
+- [x] Pin each response visual to the analysis snapshot used for that message
+- [x] Reopen visuals from older chat responses without showing stale canvas data
+- [x] Preserve legacy saved layouts while hiding superseded table and factor views from new selections
+
+**Current result:** Step 9 is complete. New Assistant responses use a focused
+set of six analysis views: investigation timeline, event activity, top entities,
+severity mix, entity relationships, and ranked top findings. Automatic mode
+maps question intent to one of those server-owned layouts; Qwen supplies concise
+narration but never creates datasets or executable UI. Layouts contain pinned
+deterministic references, and the backend resolves bounded persisted results for
+the frontend. Unknown fields, components, versions, unsafe strings, embedded
+data, invented numerical claims, and out-of-scope references are rejected.
+Message-linked visuals can be reopened from history without stale-canvas
+leakage. Superseded risk-factor, evidence-table, and alert-table layouts remain
+resolvable only for backward compatibility with saved conversations.
 
 ## 10. AI Investigation Chat
-- [ ] Add case-based chat
-- [ ] Answer questions using selected evidence
-- [ ] Explain alerts
-- [ ] Explain risk scores
-- [ ] Explain correlations
-- [ ] Explain live incident sequences
-- [ ] Return evidence references
-- [ ] Save chat history
-- [ ] Handle Qwen being offline
+- [x] Add case-based chat
+- [x] Answer questions using selected evidence
+- [x] Explain alerts
+- [x] Explain risk scores
+- [x] Explain correlations
+- [x] Explain live incident sequences
+- [x] Return evidence references
+- [x] Save chat history
+- [x] Handle Qwen being offline
+- [x] Separate normal conversation from evidence-grounded investigation mode
+- [x] Respond naturally to greetings and ordinary questions without retrieving case evidence
+- [x] Resolve explicit case names before cross-case retrieval
+- [x] Add independent AI-generation and Ollama runtime controls in System Status
+- [x] Show model, installation, context-window, request-budget, and availability details
+- [x] Bound recent conversation context and model output for faster responses
+- [x] Fix durable history restoration, scrolling, cancellation, retry, and per-message visual state
+
+**Current result:** Step 10 is complete. Assistant sessions validate case and
+selected-record scope, persist messages and jobs, derive useful conversation
+titles, and can be listed and reopened reliably. A visible evidence toggle keeps
+normal chat separate from grounded investigation retrieval, so greetings and
+ordinary questions receive natural AI responses instead of unrelated case
+fallbacks. Explicit case names are resolved before cross-case retrieval. Grounded
+answers use bounded persisted facts and verified citations; unsafe content,
+unknown references, and invented numerical claims are rejected. System Status
+now controls AI generation and the Ollama runtime independently and reports the
+installed model plus active context/request limits. Short recent history,
+bounded prompts and outputs, model keep-alive, and deterministic layout selection
+reduce latency. The interface restores useful chat history, handles long-message
+scrolling and jump-to-latest behavior, supports cancellation/retry, and binds
+visuals to their originating response. Offline or invalid model output still
+completes with a clearly labelled deterministic explanation.
 
 ## 11. Alerts, Email, Reports and Automation
 - [ ] Add SMTP setup

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.evidence.schemas import LiveTelemetryInput
 from app.core.errors import DatabaseUnavailableError
+from app.visualization.schemas import VisualizationResolveRequest, VisualizationResolvedV1
 
 
 router = APIRouter(tags=["phase3"])
@@ -38,6 +40,61 @@ class AssistantSessionCreate(BaseModel):
 
 class AssistantMessageCreate(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
+    include_evidence: bool | None = None
+    visualization_mode: Literal["none", "auto", "timeline", "severity_distribution", "event_activity", "entity_graph", "top_entities", "top_findings"] = "none"
+
+
+class AssistantSessionPublic(BaseModel):
+    session_id: UUID
+    scope: Literal["auto", "all_cases", "specific_case", "selected_references"]
+    case_ids: list[int]
+    reference_ids: list[str]
+    title: str
+    message_count: int = Field(ge=0)
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssistantErrorPublic(BaseModel):
+    code: str
+    message: str
+    retryable: bool
+
+
+class AssistantJobPublic(BaseModel):
+    job_id: UUID
+    session_id: UUID
+    status: Literal["queued", "processing", "completed", "failed"]
+    error: AssistantErrorPublic | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssistantMessagePublic(BaseModel):
+    message_id: UUID
+    session_id: UUID
+    role: Literal["user", "assistant"]
+    kind: str
+    text: str
+    citations: list[str]
+    caveats: list[str]
+    visualization: dict | None
+    model: str | None
+    created_at: datetime
+
+
+class AssistantSessionPage(BaseModel):
+    items: list[AssistantSessionPublic]
+    page: int
+    page_size: int
+    total: int
+
+
+class AssistantMessagePage(BaseModel):
+    items: list[AssistantMessagePublic]
+    page: int
+    page_size: int
+    total: int
 
 
 class ReportCreate(BaseModel):
@@ -166,30 +223,56 @@ def audit(case_id: int, request: Request, page: int = Query(1, ge=1), page_size:
     return {"items": items, "page": page, "page_size": page_size, "total": total}
 
 
-@router.post("/assistant/sessions", status_code=201)
+@router.post("/assistant/sessions", status_code=201, response_model=AssistantSessionPublic)
 def create_assistant_session(body: AssistantSessionCreate, request: Request):
     return service(request).create_assistant_session(body.scope, body.case_ids, body.reference_ids)
 
 
-@router.get("/assistant/sessions/{session_id}")
+@router.get("/assistant/sessions", response_model=AssistantSessionPage)
+def assistant_sessions(request: Request, case_id: int | None = None):
+    items = service(request).list_assistant_sessions(case_id)
+    return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
+
+
+@router.get("/assistant/sessions/{session_id}", response_model=AssistantSessionPublic)
 def assistant_session(session_id: UUID, request: Request):
     return service(request).get_assistant_session(str(session_id))
 
 
-@router.get("/assistant/sessions/{session_id}/messages")
+@router.get("/assistant/sessions/{session_id}/messages", response_model=AssistantMessagePage)
 def assistant_messages(session_id: UUID, request: Request):
     items = service(request).assistant_messages(str(session_id))
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.post("/assistant/sessions/{session_id}/messages", status_code=202)
+@router.post("/assistant/sessions/{session_id}/messages", status_code=202, response_model=AssistantJobPublic)
 def assistant_message(session_id: UUID, body: AssistantMessageCreate, request: Request):
-    return service(request).submit_assistant_message(str(session_id), body.question)
+    return service(request).submit_assistant_message(
+        str(session_id), body.question, body.include_evidence, body.visualization_mode
+    )
 
 
-@router.get("/assistant/jobs/{job_id}")
+@router.get("/assistant/jobs/{job_id}", response_model=AssistantJobPublic)
 def assistant_job(job_id: UUID, request: Request):
     return service(request).get_assistant_job(str(job_id))
+
+
+@router.post("/visualizations/resolve", response_model=VisualizationResolvedV1)
+def resolve_visualization(body: VisualizationResolveRequest, request: Request):
+    """Resolve a validated layout exclusively from persisted investigation data."""
+    return service(request).visualizations.resolve(body.layout)
+
+
+@router.get("/cases/{case_id}/visualizations/fallback", response_model=VisualizationResolvedV1)
+def fallback_visualization(
+    case_id: int,
+    request: Request,
+    intent: Literal["overview", "timeline", "risk", "correlation", "alerts", "evidence", "live", "severity_distribution", "event_activity", "entity_graph", "top_entities", "top_findings"] = "overview",
+    analysis_id: UUID | None = None,
+):
+    selector = str(analysis_id) if analysis_id else "latest"
+    layout = service(request).visualizations.fallback(case_id, intent, selector)
+    return service(request).visualizations.resolve(layout)
 
 
 @router.post("/cases/{case_id}/reports", status_code=201)

@@ -10,6 +10,7 @@ import "./shell-core.css";
 import "./assistant-central-refinements.css";
 import "./sidebar.css";
 import "./typography-refinements.css";
+import "./assistant-chat-refinements.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

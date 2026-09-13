@@ -140,6 +140,19 @@
         "title": "ActivityWindowExplanation",
         "type": "object"
       },
+      "AiControlUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AiControlUpdate",
+        "type": "object"
+      },
       "Alert": {
         "additionalProperties": false,
         "properties": {
@@ -817,12 +830,115 @@
         "title": "Approval",
         "type": "object"
       },
+      "AssistantErrorPublic": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "title": "AssistantErrorPublic",
+        "type": "object"
+      },
+      "AssistantJobPublic": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantErrorPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "session_id",
+          "status",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AssistantJobPublic",
+        "type": "object"
+      },
       "AssistantMessageCreate": {
         "properties": {
+          "include_evidence": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Evidence"
+          },
           "question": {
             "maxLength": 4000,
             "minLength": 1,
             "title": "Question",
+            "type": "string"
+          },
+          "visualization_mode": {
+            "default": "none",
+            "enum": [
+              "none",
+              "auto",
+              "timeline",
+              "severity_distribution",
+              "event_activity",
+              "entity_graph",
+              "top_entities",
+              "top_findings"
+            ],
+            "title": "Visualization Mode",
             "type": "string"
           }
         },
@@ -830,6 +946,123 @@
           "question"
         ],
         "title": "AssistantMessageCreate",
+        "type": "object"
+      },
+      "AssistantMessagePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantMessagePublic"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "AssistantMessagePage",
+        "type": "object"
+      },
+      "AssistantMessagePublic": {
+        "properties": {
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveats",
+            "type": "array"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message_id": {
+            "format": "uuid",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "visualization": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visualization"
+          }
+        },
+        "required": [
+          "message_id",
+          "session_id",
+          "role",
+          "kind",
+          "text",
+          "citations",
+          "caveats",
+          "visualization",
+          "model",
+          "created_at"
+        ],
+        "title": "AssistantMessagePublic",
         "type": "object"
       },
       "AssistantSessionCreate": {
@@ -863,6 +1096,101 @@
           }
         },
         "title": "AssistantSessionCreate",
+        "type": "object"
+      },
+      "AssistantSessionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantSessionPublic"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "AssistantSessionPage",
+        "type": "object"
+      },
+      "AssistantSessionPublic": {
+        "properties": {
+          "case_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Case Ids",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "message_count": {
+            "minimum": 0.0,
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reference Ids",
+            "type": "array"
+          },
+          "scope": {
+            "enum": [
+              "auto",
+              "all_cases",
+              "specific_case",
+              "selected_references"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "scope",
+          "case_ids",
+          "reference_ids",
+          "title",
+          "message_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AssistantSessionPublic",
         "type": "object"
       },
       "BaselineSummary": {
@@ -3210,6 +3538,19 @@
         "title": "NormalizationIssue",
         "type": "object"
       },
+      "OllamaServerUpdate": {
+        "properties": {
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "running"
+        ],
+        "title": "OllamaServerUpdate",
+        "type": "object"
+      },
       "PageResponse_Alert_": {
         "additionalProperties": false,
         "properties": {
@@ -4206,6 +4547,173 @@
         ],
         "title": "ValidationStatus",
         "type": "string"
+      },
+      "VisualizationComponentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "data_ref": {
+            "maxLength": 180,
+            "minLength": 1,
+            "title": "Data Ref",
+            "type": "string"
+          },
+          "height": {
+            "default": "standard",
+            "enum": [
+              "compact",
+              "standard",
+              "tall"
+            ],
+            "title": "Height",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "span": {
+            "default": 1,
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Span",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "timeline",
+              "risk_breakdown",
+              "severity_distribution",
+              "event_activity",
+              "entity_graph",
+              "evidence_table",
+              "alert_list",
+              "top_entities",
+              "top_findings"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "data_ref"
+        ],
+        "title": "VisualizationComponentV1",
+        "type": "object"
+      },
+      "VisualizationLayoutV1": {
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/VisualizationComponentV1"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Components",
+            "type": "array"
+          },
+          "layout_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Layout Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layout_id",
+          "title",
+          "components"
+        ],
+        "title": "VisualizationLayoutV1",
+        "type": "object"
+      },
+      "VisualizationResolveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "layout": {
+            "$ref": "#/components/schemas/VisualizationLayoutV1"
+          }
+        },
+        "required": [
+          "layout"
+        ],
+        "title": "VisualizationResolveRequest",
+        "type": "object"
+      },
+      "VisualizationResolvedV1": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Analysis Ids",
+            "type": "object"
+          },
+          "datasets": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Datasets",
+            "type": "object"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/VisualizationLayoutV1"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layout",
+          "datasets",
+          "analysis_ids"
+        ],
+        "title": "VisualizationResolvedV1",
+        "type": "object"
       }
     }
   },
@@ -4277,7 +4785,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantJobPublic"
+                }
               }
             },
             "description": "Successful Response"
@@ -4300,6 +4810,53 @@
       }
     },
     "/api/v1/assistant/sessions": {
+      "get": {
+        "operationId": "assistant_sessions_api_v1_assistant_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSessionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assistant Sessions",
+        "tags": [
+          "phase3"
+        ]
+      },
       "post": {
         "operationId": "create_assistant_session_api_v1_assistant_sessions_post",
         "requestBody": {
@@ -4316,7 +4873,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSessionPublic"
+                }
               }
             },
             "description": "Successful Response"
@@ -4357,7 +4916,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSessionPublic"
+                }
               }
             },
             "description": "Successful Response"
@@ -4398,7 +4959,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantMessagePage"
+                }
               }
             },
             "description": "Successful Response"
@@ -4447,7 +5010,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantJobPublic"
+                }
               }
             },
             "description": "Successful Response"
@@ -6601,6 +7166,89 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/visualizations/fallback": {
+      "get": {
+        "operationId": "fallback_visualization_api_v1_cases__case_id__visualizations_fallback_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "intent",
+            "required": false,
+            "schema": {
+              "default": "overview",
+              "enum": [
+                "overview",
+                "timeline",
+                "risk",
+                "correlation",
+                "alerts",
+                "evidence",
+                "live",
+                "severity_distribution",
+                "event_activity",
+                "entity_graph",
+                "top_entities",
+                "top_findings"
+              ],
+              "title": "Intent",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "analysis_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualizationResolvedV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fallback Visualization",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
     "/api/v1/dashboard/summary": {
       "get": {
         "operationId": "dashboard_api_v1_dashboard_summary_get",
@@ -6933,6 +7581,90 @@
           }
         },
         "summary": "Ai Health",
+        "tags": [
+          "health"
+        ]
+      },
+      "patch": {
+        "operationId": "update_ai_control_api_v1_health_ai_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiControlUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Ai Control Api V1 Health Ai Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Ai Control",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/ai/server": {
+      "patch": {
+        "operationId": "update_ollama_server_api_v1_health_ai_server_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OllamaServerUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Ollama Server Api V1 Health Ai Server Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Ollama Server",
         "tags": [
           "health"
         ]
@@ -7573,6 +8305,48 @@
           }
         },
         "summary": "Generate Report",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
+    "/api/v1/visualizations/resolve": {
+      "post": {
+        "description": "Resolve a validated layout exclusively from persisted investigation data.",
+        "operationId": "resolve_visualization_api_v1_visualizations_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualizationResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualizationResolvedV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Visualization",
         "tags": [
           "phase3"
         ]

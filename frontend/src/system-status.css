@@ -1,0 +1,147 @@
+.ai-runtime-panel {
+  margin-bottom: 12px;
+}
+
+.status-card-grid-services {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.ai-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ai-control-grid > article {
+  padding: 14px;
+  border: 1px solid #1a2a40;
+  border-radius: 8px;
+  background: #080e17;
+}
+
+.ai-control-grid > article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-control-grid h4,
+.ai-model-heading h4 {
+  margin: 12px 0 5px;
+  font-size: 12px;
+}
+
+.ai-control-grid p,
+.ai-model-heading p {
+  color: #718197;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.ai-control-grid .button {
+  width: 100%;
+  margin-top: 13px;
+}
+
+.ai-model-heading {
+  padding-top: 16px;
+  margin: 16px 0 11px;
+  border-top: 1px solid var(--border);
+}
+
+.ai-model-heading h4 {
+  margin-top: 0;
+}
+
+.ai-control-error {
+  color: #ff858c !important;
+  margin-top: 8px;
+}
+
+.ai-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ai-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #172437;
+  border-radius: 6px;
+  background: #080d15;
+}
+
+.ai-detail-grid span {
+  color: #617188;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .45px;
+}
+
+.ai-detail-grid b {
+  color: #b8c6d8;
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+.status-disabled,
+.status-model-missing,
+.status-waiting,
+.status-waiting-for-ollama {
+  color: #e6c865;
+  border-color: #4b411a;
+  background: #211e0c;
+}
+
+.status-disabled i,
+.status-model-missing i,
+.status-waiting i,
+.status-waiting-for-ollama i {
+  background: var(--yellow);
+}
+
+.status-running {
+  color: #59d2ad;
+  border-color: #1d4d40;
+  background: #0b211b;
+}
+
+.status-running i {
+  background: var(--green);
+}
+
+.status-stopped {
+  color: #ff858c;
+  border-color: #4e242b;
+  background: #251016;
+}
+
+.status-stopped i {
+  background: var(--red);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+@media (max-width: 980px) {
+  .ai-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .ai-control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

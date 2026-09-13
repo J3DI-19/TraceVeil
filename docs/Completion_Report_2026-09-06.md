@@ -1,17 +1,17 @@
 # COMPLETION REPORT
 **Traceveil roadmap reconciliation, delivery status, and contribution record**
 
-**Prepared:** 2026-09-09
+**Prepared:** 2026-09-12
 
-**Source set:** Roadmap, frontend completion audit, batch-practical-usability checklist, contribution record, and the verified diffs for `c4ec731` and `42efe68`.
+**Source set:** Roadmap, frontend completion audit, batch and Steps 9–10 practical-usability checklists, Step 9 and Step 10 verification records, contribution record, and verified repository history through `a1962a2`.
 
-**Repository snapshot:** `42efe68` on branch `J3DI`.
+**Repository snapshot:** `a1962a2` on branch `J3DI`.
 
 ## Executive Summary
 
 **Project Delivery Status & Trajectory**
 
-Traceveil has crossed a critical threshold in its development lifecycle, transitioning from core foundational services to an integrated, end-to-end operational platform. The system successfully demonstrates a robust **persisted batch-investigation workflow**, validated against rigorous usability showcases, alongside a newly finalized **Live IoT Integration pipeline** (Step 5). 
+Traceveil now provides an integrated persisted investigation platform spanning evidence intake, deterministic analysis, safe visual exploration, and grounded local-AI assistance. The completed **batch-investigation workflow** and **Live IoT Integration pipeline** are joined by the completed Step 9 visualization engine and Step 10 investigation chat.
 
 **Key Recent Achievements:**
 - **Batch Processing Attained:** The system securely ingests, validates, and normalizes evidence into canonical events. The deterministic analysis engine is actively generating bounded risk scores, timelines, and analytical projections (Steps 3, 4, 6, and 8).
@@ -21,14 +21,27 @@ Traceveil has crossed a critical threshold in its development lifecycle, transit
 - **Classification Made Explicit:** Dataset-supplied labels such as DDoS are visibly separated from Traceveil-discovered findings. Risk output now exposes classification source, confidence, evidence confidence, factors, and penalties.
 - **Dense and Mixed Cases Hardened:** Incident grouping is bounded and time-aware, artifact identifiers remain unique, dense timelines are paged, anomalous activity windows preserve cause attribution, and datasets converge only through genuine time/device/network context.
 - **Dataset and Case UX Completed:** Curated samples, checksums, device inventory, automatic beginner-friendly case descriptions, compact case rows, and a full Case Overview explanation are implemented.
+- **Safe Visual Analysis Completed:** Six focused views—timeline, event activity,
+  top entities, severity mix, entity relationships, and top findings—resolve
+  persisted data through versioned allow-listed layouts. Visuals are pinned to
+  the originating message and analysis snapshot, and Automatic mode chooses the
+  view deterministically from question intent.
+- **Grounded Local-AI Chat Completed:** Durable sessions support natural chat,
+  explicit evidence inclusion, case and selected-record scope, verified
+  citations, offline deterministic completion, history restoration, scrolling,
+  cancellation, retry, and message-linked visuals.
+- **AI Runtime Clarity and Performance Completed:** System Status separates AI
+  generation from the Ollama runtime, provides independent controls and model
+  details, and reports context/request limits. Bounded recent history, smaller
+  prompts and outputs, and model keep-alive reduce response latency.
 
 **Overall Progress:**
-The reconciled roadmap now contains **164 planned sub-items**, of which **114 are implemented and verified**, for a formal completion rate of **69.5%**. The 21 newly recorded items in Step 13 are all complete and owned by J3DI. The 50 remaining items are concentrated in real-time frontend delivery (Step 7), remaining AI visual/chat integrations (Steps 9 and 10), reporting automation (Step 11), and the physical demonstration (Step 12).
+The reconciled roadmap now contains **176 planned sub-items**, of which **145 are implemented and verified**, for a formal completion rate of **82.4%**. Steps 9 and 10 are complete, including 12 newly recorded usability, runtime, performance, and visualization refinements owned by J3DI. The **31 remaining items** are confined to real-time frontend delivery (Step 7), reporting automation (Step 11), and the physical demonstration (Step 12).
 
 ```mermaid
 pie title Overall Roadmap Completion
-    "Complete (114)" : 114
-    "Pending (50)" : 50
+    "Complete (145)" : 145
+    "Pending (31)" : 31
 ```
 
 ---
@@ -186,36 +199,48 @@ pie title Step 8 Progress
 - [x] Verify generated OpenAPI types and connected frontend workflows in CI
 - [x] Document genuine live-incident history as deferred to Steps 5 and 7
 
-### 9. Visualization Engine + Qwen (Pending)
+### 9. Visualization Engine + Qwen (Complete)
 ```mermaid
 pie title Step 9 Progress
-    "Pending" : 10
+    "Complete" : 15
 ```
-- [ ] Create allowed visualization components
-- [ ] Create and validate versioned layout JSON
-- [ ] Allow only deterministic data references
-- [ ] Let Qwen summarize validated results
-- [ ] Let Qwen choose safe visualization layouts
-- [ ] Reject unknown components and fields
-- [ ] Reject invented numerical values
-- [ ] Reject unsafe output
-- [ ] Add deterministic fallback layouts
-- [ ] Support visualization of both historical and live investigation data
+- [x] Create allowed visualization components
+- [x] Create and validate versioned layout JSON
+- [x] Allow only deterministic data references
+- [x] Let Qwen summarize validated results
+- [x] Let Qwen choose safe visualization layouts
+- [x] Reject unknown components and fields
+- [x] Reject invented numerical values
+- [x] Reject unsafe output
+- [x] Add deterministic fallback layouts
+- [x] Support visualization of both historical and live investigation data
+- [x] Offer a focused analysis set: timeline, event activity, top entities, severity mix, entity relationships, and top findings
+- [x] Route Automatic mode deterministically from the investigation question
+- [x] Pin each response visual to the analysis snapshot used for that message
+- [x] Reopen visuals from older chat responses without showing stale canvas data
+- [x] Preserve legacy saved layouts while hiding superseded views from new selections
 
-### 10. AI Investigation Chat (Pending)
+### 10. AI Investigation Chat (Complete)
 ```mermaid
 pie title Step 10 Progress
-    "Pending" : 9
+    "Complete" : 16
 ```
-- [ ] Add case-based chat
-- [ ] Answer questions using selected evidence
-- [ ] Explain alerts
-- [ ] Explain risk scores
-- [ ] Explain correlations
-- [ ] Explain live incident sequences
-- [ ] Return evidence references
-- [ ] Save chat history
-- [ ] Handle Qwen being offline
+- [x] Add case-based chat
+- [x] Answer questions using selected evidence
+- [x] Explain alerts
+- [x] Explain risk scores
+- [x] Explain correlations
+- [x] Explain live incident sequences
+- [x] Return evidence references
+- [x] Save chat history
+- [x] Handle Qwen being offline
+- [x] Separate normal conversation from evidence-grounded investigation mode
+- [x] Respond naturally to greetings and ordinary questions without retrieving case evidence
+- [x] Resolve explicit case names before cross-case retrieval
+- [x] Add independent AI-generation and Ollama runtime controls in System Status
+- [x] Show model, installation, context-window, request-budget, and availability details
+- [x] Bound recent conversation context and model output for faster responses
+- [x] Fix durable history restoration, scrolling, cancellation, retry, and per-message visual state
 
 ### 11. Alerts, Email, Reports and Automation (Pending)
 ```mermaid
@@ -288,12 +313,12 @@ compact case rows, and the Case Overview dataset panel.
 
 ## Team Ownership & Contributions
 
-The repository contains 51 commits at the recorded snapshot.
+The repository contains 62 commits at the recorded snapshot.
 
-**J3DI (Project Lead)** - *39 verified commits across the J3DI and J3DI-19 author identities*
+**J3DI (Project Lead)** - *50 verified commits across the J3DI and J3DI-19 author identities*
 - **Role:** Documentation, planning, merging, review, and integration oversight.
-- **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, and case-description UX.
-- **Latest Delivery:** `c4ec731` and `42efe68`, covering all 21 completed Step 13 items.
+- **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, and local-AI runtime controls.
+- **Latest Delivery:** `7e56850`, `9e03217`, `4a545a7`, `0ed5a36`, and `a1962a2`, completing Steps 9 and 10 and their usability/performance refinements.
 
 **Aarya (Contributor)** - *10 Commits*
 - **Role:** Backend and Analysis Engineering
@@ -308,9 +333,11 @@ The repository contains 51 commits at the recorded snapshot.
 - **Backend/API/persistence tests:** Passing
 - **TypeScript and lint:** Passing
 - **Production build:** Passing
+- **OpenAPI contract and generated frontend types:** Synchronized and passing
 - **Batch Usability Showcase:** Passed integration and usability gate across Steps 1, 2, 3, 4, 6, and 8.
-- **Recent regression pass:** Full backend suite passed; full frontend suite passed (80 tests); the final case-list/overview adjustment passed all 24 affected frontend tests; production build passed.
+- **Steps 9–10 regression pass:** Full backend suite passed; full frontend suite passed (88 tests across 15 files); TypeScript lint and the production Vite build passed.
+- **Live AI/visual acceptance:** `qwen35-uncensored:latest` returned grounded responses while deterministic routing selected snapshot-pinned Fridge severity and top-entity views; persisted top-finding and top-entity datasets resolved successfully.
 - **Dataset acceptance:** HAI ICS (300 wide telemetry rows), IoT-23 (1,000 flows), TON_IoT refrigerator (1,000 readings), CASAS Milan (1,000 sensor events), and simulation samples are cataloged with checksums and device descriptions.
 
 ## Closeout Note
-This report is the consolidated handoff record through 9 September 2026 and commit `42efe68`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, and dataset-aware case explanations are embedded in the codebase. Remaining roadmap work is explicitly retained under Steps 7, 9, 10, 11, and 12 rather than being inferred as complete.
+This report is the consolidated handoff record through 12 September 2026 and commit `a1962a2`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, and grounded local-AI chat are embedded in the codebase. Remaining roadmap work is explicitly retained only under Steps 7, 11, and 12 rather than being inferred as complete.

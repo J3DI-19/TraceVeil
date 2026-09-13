@@ -1,17 +1,17 @@
 # Team Ownership & Contributions
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-12
 
-**Repository snapshot:** `42efe68` on branch `J3DI`
+**Repository snapshot:** `a1962a2` on branch `J3DI`
 
-**Commit count:** 51
+**Commit count:** 62
 
 This record combines author names that use the same verified email identity. In
 particular, `J3DI` and `J3DI-19` are reported together as J3DI.
 
 ```mermaid
 pie title Commit Authorship at the Recorded Snapshot
-    "J3DI" : 39
+    "J3DI" : 50
     "Aarya" : 10
     "Ayra" : 2
 ```
@@ -22,7 +22,7 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 01, 02, 09, 10, plus cross-cutting integration and delivery
 
-**Verified commits:** 39
+**Verified commits:** 50
 
 ### Allocated project-wide ownership
 
@@ -51,9 +51,37 @@ pie title Commit Authorship at the Recorded Snapshot
 - **Case explanation UX:** Added automatically maintained, beginner-friendly
   dataset descriptions, preserved investigator-written text, concise hover text
   in case management, and a full responsive description panel in Case Overview.
+- **Safe investigation visualizations:** Completed the versioned deterministic
+  visualization boundary, historical snapshot pinning, backend dataset resolver,
+  message-linked canvas, focused six-view selector, ranked entity/finding views,
+  severity pie chart, safe fallbacks, and deterministic Automatic routing.
+- **Grounded AI investigation chat:** Completed durable case/reference-scoped
+  conversations, bounded retrieval, verified citations, natural non-evidence
+  chat, case-name resolution, offline deterministic answers, history restoration,
+  scrolling, cancellation, retry, and per-response visual controls.
+- **Local AI operations and performance:** Added independent AI-generation and
+  Ollama runtime controls, model/context/request details in System Status,
+  shorter prompt/history budgets, bounded output, model keep-alive, and clearer
+  failure-state reporting.
 
 ### Most recent verified commits
 
+- `a1962a2` (2026-09-12) — **Improve assistant reliability and investigation
+  visuals.** Added the focused six-view analysis set, real severity pie, ranked
+  top entities and findings, deterministic Automatic routing, stronger chat
+  behavior, and live-tested persisted visualization selection.
+- `0ed5a36` (2026-09-11) — **Improve assistant chat controls and performance.**
+  Added explicit evidence/visual controls, durable history behavior, reduced
+  context and output budgets, faster polling, and message-linked visual state.
+- `4a545a7` (2026-09-10) — **Add local AI runtime controls and harden
+  assistant.** Separated AI generation from Ollama process status, exposed model
+  and context details, and strengthened runtime and fallback checks.
+- `9e03217` (2026-09-10) — **Complete grounded investigation chat.** Delivered
+  persisted scoped sessions, bounded evidence retrieval, safe Qwen narration,
+  verified references, history, and deterministic offline completion.
+- `7e56850` (2026-09-10) — **Complete safe investigation visualizations.**
+  Delivered versioned allow-listed layouts, deterministic data references,
+  persisted resolvers, connected renderers, fallbacks, and snapshot pinning.
 - `42efe68` (2026-09-09) — **Add dataset-aware case descriptions.** Added the
   plain-language source catalog, automatic description creation/backfill,
   mixed-source explanation logic, compact hover presentation, the Case Overview
@@ -123,7 +151,9 @@ pie title Commit Authorship at the Recorded Snapshot
 
 ## Attribution note
 
-Counts above come from `git shortlog -sne HEAD` at `42efe68`. Feature ownership
+Counts above come from `git shortlog -sne HEAD` at `a1962a2`. The J3DI total
+combines 38 commits authored as `J3DI` and 12 authored as `J3DI-19`, which share
+the verified `j3di.legend@gmail.com` identity. Feature ownership
 is based on the committed diff and the agreed assigned steps; a checked roadmap
 item records delivery ownership and does not erase earlier foundational work by
 another contributor.

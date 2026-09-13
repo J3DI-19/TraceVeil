@@ -45,7 +45,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Assistant Sessions */
+        get: operations["assistant_sessions_api_v1_assistant_sessions_get"];
         put?: never;
         /** Create Assistant Session */
         post: operations["create_assistant_session_api_v1_assistant_sessions_post"];
@@ -536,6 +537,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/visualizations/fallback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fallback Visualization */
+        get: operations["fallback_visualization_api_v1_cases__case_id__visualizations_fallback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -670,7 +688,25 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Ai Control */
+        patch: operations["update_ai_control_api_v1_health_ai_patch"];
+        trace?: never;
+    };
+    "/api/v1/health/ai/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Ollama Server */
+        patch: operations["update_ollama_server_api_v1_health_ai_server_patch"];
         trace?: never;
     };
     "/api/v1/health/db": {
@@ -911,6 +947,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visualizations/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Visualization
+         * @description Resolve a validated layout exclusively from persisted investigation data.
+         */
+        post: operations["resolve_visualization_api_v1_visualizations_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -967,6 +1023,11 @@ export interface components {
              * Format: date-time
              */
             window_start: string;
+        };
+        /** AiControlUpdate */
+        AiControlUpdate: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** Alert */
         Alert: {
@@ -1319,10 +1380,104 @@ export interface components {
              */
             confirmed: true;
         };
+        /** AssistantErrorPublic */
+        AssistantErrorPublic: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Retryable */
+            retryable: boolean;
+        };
+        /** AssistantJobPublic */
+        AssistantJobPublic: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            error: components["schemas"]["AssistantErrorPublic"] | null;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "processing" | "completed" | "failed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** AssistantMessageCreate */
         AssistantMessageCreate: {
+            /** Include Evidence */
+            include_evidence?: boolean | null;
             /** Question */
             question: string;
+            /**
+             * Visualization Mode
+             * @default none
+             * @enum {string}
+             */
+            visualization_mode: "none" | "auto" | "timeline" | "severity_distribution" | "event_activity" | "entity_graph" | "top_entities" | "top_findings";
+        };
+        /** AssistantMessagePage */
+        AssistantMessagePage: {
+            /** Items */
+            items: components["schemas"]["AssistantMessagePublic"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AssistantMessagePublic */
+        AssistantMessagePublic: {
+            /** Caveats */
+            caveats: string[];
+            /** Citations */
+            citations: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Model */
+            model: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Text */
+            text: string;
+            /** Visualization */
+            visualization: {
+                [key: string]: unknown;
+            } | null;
         };
         /** AssistantSessionCreate */
         AssistantSessionCreate: {
@@ -1336,6 +1491,48 @@ export interface components {
              * @enum {string}
              */
             scope: "auto" | "all_cases" | "specific_case" | "selected_references";
+        };
+        /** AssistantSessionPage */
+        AssistantSessionPage: {
+            /** Items */
+            items: components["schemas"]["AssistantSessionPublic"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AssistantSessionPublic */
+        AssistantSessionPublic: {
+            /** Case Ids */
+            case_ids: number[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Message Count */
+            message_count: number;
+            /** Reference Ids */
+            reference_ids: string[];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "auto" | "all_cases" | "specific_case" | "selected_references";
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** BaselineSummary */
         BaselineSummary: {
@@ -2151,6 +2348,11 @@ export interface components {
             /** Source Value */
             source_value?: string | null;
         };
+        /** OllamaServerUpdate */
+        OllamaServerUpdate: {
+            /** Running */
+            running: boolean;
+        };
         /** PageResponse[Alert] */
         PageResponse_Alert_: {
             /** Items */
@@ -2489,6 +2691,73 @@ export interface components {
          * @enum {string}
          */
         ValidationStatus: "accepted" | "accepted_with_warnings" | "rejected";
+        /** VisualizationComponentV1 */
+        VisualizationComponentV1: {
+            /** Data Ref */
+            data_ref: string;
+            /**
+             * Height
+             * @default standard
+             * @enum {string}
+             */
+            height: "compact" | "standard" | "tall";
+            /** Id */
+            id: string;
+            /**
+             * Span
+             * @default 1
+             * @enum {integer}
+             */
+            span: 1 | 2 | 3;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "timeline" | "risk_breakdown" | "severity_distribution" | "event_activity" | "entity_graph" | "evidence_table" | "alert_list" | "top_entities" | "top_findings";
+        };
+        /** VisualizationLayoutV1 */
+        VisualizationLayoutV1: {
+            /** Components */
+            components: components["schemas"]["VisualizationComponentV1"][];
+            /** Layout Id */
+            layout_id: string;
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /** Title */
+            title: string;
+        };
+        /** VisualizationResolveRequest */
+        VisualizationResolveRequest: {
+            layout: components["schemas"]["VisualizationLayoutV1"];
+        };
+        /** VisualizationResolvedV1 */
+        VisualizationResolvedV1: {
+            /** Analysis Ids */
+            analysis_ids: {
+                [key: string]: string;
+            };
+            /** Datasets */
+            datasets: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[] | {
+                    [key: string]: unknown;
+                };
+            };
+            layout: components["schemas"]["VisualizationLayoutV1"];
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+        };
     };
     responses: never;
     parameters: never;
@@ -2546,7 +2815,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssistantJobPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assistant_sessions_api_v1_assistant_sessions_get: {
+        parameters: {
+            query?: {
+                case_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSessionPage"];
                 };
             };
             /** @description Validation Error */
@@ -2579,7 +2879,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssistantSessionPublic"];
                 };
             };
             /** @description Validation Error */
@@ -2610,7 +2910,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssistantSessionPublic"];
                 };
             };
             /** @description Validation Error */
@@ -2641,7 +2941,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssistantMessagePage"];
                 };
             };
             /** @description Validation Error */
@@ -2676,7 +2976,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssistantJobPublic"];
                 };
             };
             /** @description Validation Error */
@@ -3716,6 +4016,40 @@ export interface operations {
             };
         };
     };
+    fallback_visualization_api_v1_cases__case_id__visualizations_fallback_get: {
+        parameters: {
+            query?: {
+                intent?: "overview" | "timeline" | "risk" | "correlation" | "alerts" | "evidence" | "live" | "severity_distribution" | "event_activity" | "entity_graph" | "top_entities" | "top_findings";
+                analysis_id?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisualizationResolvedV1"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     dashboard_api_v1_dashboard_summary_get: {
         parameters: {
             query?: never;
@@ -3970,6 +4304,76 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    update_ai_control_api_v1_health_ai_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiControlUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_ollama_server_api_v1_health_ai_server_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OllamaServerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4402,6 +4806,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_visualization_api_v1_visualizations_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisualizationResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisualizationResolvedV1"];
                 };
             };
             /** @description Validation Error */
