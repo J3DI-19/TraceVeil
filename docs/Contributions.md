@@ -1,17 +1,17 @@
 # Team Ownership & Contributions
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
-**Repository snapshot:** `a1962a2` on branch `J3DI`
+**Repository snapshot:** `6428570` on branch `main`
 
-**Commit count:** 62
+**Commit count:** 67
 
 This record combines author names that use the same verified email identity. In
 particular, `J3DI` and `J3DI-19` are reported together as J3DI.
 
 ```mermaid
 pie title Commit Authorship at the Recorded Snapshot
-    "J3DI" : 50
+    "J3DI" : 55
     "Aarya" : 10
     "Ayra" : 2
 ```
@@ -22,7 +22,7 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 01, 02, 09, 10, plus cross-cutting integration and delivery
 
-**Verified commits:** 50
+**Verified commits:** 55
 
 ### Allocated project-wide ownership
 
@@ -63,9 +63,30 @@ pie title Commit Authorship at the Recorded Snapshot
   Ollama runtime controls, model/context/request details in System Status,
   shorter prompt/history budgets, bounded output, model keep-alive, and clearer
   failure-state reporting.
+- **Assistant workspace UX:** Rebuilt the investigation chat as a compact,
+  readable two-pane workspace with a reduced global shell, unified controls,
+  improved scrolling, clearer message presentation, and a cleaner visual canvas.
+- **Interactive visual workspace:** Preserved multiple response visuals until
+  explicitly closed, added drag reordering, compact close and zoom controls,
+  focused full-size previews, stronger chart readability, and consistent native
+  dropdown styling across scope, history, and visual selection.
+- **Mainline delivery:** Opened and merged PR #17, bringing all nine Step 9–10
+  implementation, documentation, reliability, performance, and UI commits from
+  `J3DI` into `main` after the required CI checks passed.
 
 ### Most recent verified commits
 
+- `254e84f` (2026-09-12) — **Polish assistant visuals and controls.** Added
+  focused visual previews, clearer chart and visual-panel presentation, improved
+  drag/zoom/close controls, a refined evidence checkbox, and one consolidated,
+  readable style path for all three assistant dropdowns.
+- `3213ca1` (2026-09-12) — **Keep assistant visuals open across responses.**
+  Changed the canvas from single-response replacement to persistent multi-visual
+  state, retaining each visual until the investigator closes it.
+- `96320b3` (2026-09-12) — **Revamp investigation assistant workspace.**
+  Reworked the page into a minimal chat-first layout, simplified its headers and
+  surrounding shell, improved readability and scrolling, and introduced the
+  interactive visual workspace.
 - `a1962a2` (2026-09-12) — **Improve assistant reliability and investigation
   visuals.** Added the focused six-view analysis set, real severity pie, ranked
   top entities and findings, deterministic Automatic routing, stronger chat
@@ -151,8 +172,8 @@ pie title Commit Authorship at the Recorded Snapshot
 
 ## Attribution note
 
-Counts above come from `git shortlog -sne HEAD` at `a1962a2`. The J3DI total
-combines 38 commits authored as `J3DI` and 12 authored as `J3DI-19`, which share
+Counts above come from `git shortlog -sne main` at `6428570`. The J3DI total
+combines 42 commits authored as `J3DI` and 13 authored as `J3DI-19`, which share
 the verified `j3di.legend@gmail.com` identity. Feature ownership
 is based on the committed diff and the agreed assigned steps; a checked roadmap
 item records delivery ownership and does not erase earlier foundational work by
