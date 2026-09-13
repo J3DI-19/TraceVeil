@@ -43,6 +43,13 @@ describe("Traceveil investigation interface", () => {
     expect(screen.getByText("Persisted demo")).toBeInTheDocument();
   });
 
+  it("does not expose the removed settings workspace", async () => {
+    window.history.replaceState({}, "", "/settings");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Investigation view not found" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+  });
+
   it("renders the connected Assistant with bounded case context and a safe layout boundary", async () => {
     window.history.replaceState({}, "", "/assistant?case=1&alert=ALT-8831");
     render(<App />);
@@ -236,24 +243,6 @@ describe("Traceveil investigation interface", () => {
     expect(await screen.findByText("Reports and email")).toBeInTheDocument();
     expect(screen.getByText(/email is never sent automatically/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create report" })).toBeInTheDocument();
-  });
-
-  it("renders stateful settings with honest capability boundaries", async () => {
-    window.history.replaceState({}, "", "/settings");
-    render(<App />);
-    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByText("Frontend preference boundary")).toBeInTheDocument();
-    const save = screen.getByRole("button", { name: "Save preferences" });
-    expect(save).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Compact evidence rows" }));
-    expect(screen.getByText("Unsaved session changes")).toBeInTheDocument();
-    fireEvent.click(save);
-    expect(screen.getByText(/Settings applied to this browser session/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Model settings/ }));
-    expect(screen.getByText("Optional AI runtime")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Email delivery/ }));
-    expect(screen.getByText("Delivery is server-configured")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save email delivery" })).toBeDisabled();
   });
 
   it("routes to a truthful empty import workflow", async () => {
