@@ -1,11 +1,11 @@
 # COMPLETION REPORT
 **Traceveil roadmap reconciliation, delivery status, and contribution record**
 
-**Prepared:** 2026-09-12
+**Prepared:** 2026-09-13
 
-**Source set:** Roadmap, frontend completion audit, batch and Steps 9–10 practical-usability checklists, Step 9 and Step 10 verification records, contribution record, and verified repository history through `a1962a2`.
+**Source set:** Roadmap, frontend completion audit, batch and Steps 9–10 practical-usability checklists, Step 9 and Step 10 verification records, contribution record, and verified repository history through `6428570`.
 
-**Repository snapshot:** `a1962a2` on branch `J3DI`.
+**Repository snapshot:** `6428570` on branch `main` following the merge of PR #17.
 
 ## Executive Summary
 
@@ -34,9 +34,17 @@ Traceveil now provides an integrated persisted investigation platform spanning e
   generation from the Ollama runtime, provides independent controls and model
   details, and reports context/request limits. Bounded recent history, smaller
   prompts and outputs, and model keep-alive reduce response latency.
+- **Investigation Workspace UX Completed:** The assistant now uses a compact,
+  chat-first two-pane layout with clearer messages, reduced global chrome,
+  unified readable selectors, a refined evidence control, and a persistent
+  visual workspace. Investigators can keep multiple response visuals open,
+  reorder them by dragging, close them individually, and open a focused preview.
+- **Mainline Integration Completed:** PR #17 merged the full nine-commit Step
+  9–10 delivery series from `J3DI` into `main` after all required GitHub checks
+  passed.
 
 **Overall Progress:**
-The reconciled roadmap now contains **176 planned sub-items**, of which **145 are implemented and verified**, for a formal completion rate of **82.4%**. Steps 9 and 10 are complete, including 12 newly recorded usability, runtime, performance, and visualization refinements owned by J3DI. The **31 remaining items** are confined to real-time frontend delivery (Step 7), reporting automation (Step 11), and the physical demonstration (Step 12).
+The reconciled roadmap contains **176 planned sub-items**, of which **145 are implemented and verified**, for a formal completion rate of **82.4%**. Steps 9 and 10 remain complete, including their recorded usability, runtime, performance, and visualization refinements owned by J3DI. Subsequent post-completion work hardened the assistant workspace and visual interactions without expanding formal roadmap scope. The **31 remaining items** are confined to real-time frontend delivery (Step 7), reporting automation (Step 11), and the physical demonstration (Step 12).
 
 ```mermaid
 pie title Overall Roadmap Completion
@@ -313,12 +321,12 @@ compact case rows, and the Case Overview dataset panel.
 
 ## Team Ownership & Contributions
 
-The repository contains 62 commits at the recorded snapshot.
+The repository contains 67 commits at the recorded `main` snapshot.
 
-**J3DI (Project Lead)** - *50 verified commits across the J3DI and J3DI-19 author identities*
+**J3DI (Project Lead)** - *55 verified commits across the J3DI and J3DI-19 author identities*
 - **Role:** Documentation, planning, merging, review, and integration oversight.
-- **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, and local-AI runtime controls.
-- **Latest Delivery:** `7e56850`, `9e03217`, `4a545a7`, `0ed5a36`, and `a1962a2`, completing Steps 9 and 10 and their usability/performance refinements.
+- **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, local-AI runtime controls, and the compact interactive assistant workspace.
+- **Latest Delivery:** `7e56850`, `9e03217`, `4a545a7`, `0ed5a36`, `a1962a2`, `96320b3`, `3213ca1`, and `254e84f`, completing Steps 9 and 10 and their reliability, performance, visual-selection, persistent-canvas, and UI refinements. PR #17 merged the complete nine-commit series into `main` as `6428570`.
 
 **Aarya (Contributor)** - *10 Commits*
 - **Role:** Backend and Analysis Engineering
@@ -335,9 +343,10 @@ The repository contains 62 commits at the recorded snapshot.
 - **Production build:** Passing
 - **OpenAPI contract and generated frontend types:** Synchronized and passing
 - **Batch Usability Showcase:** Passed integration and usability gate across Steps 1, 2, 3, 4, 6, and 8.
-- **Steps 9–10 regression pass:** Full backend suite passed; full frontend suite passed (88 tests across 15 files); TypeScript lint and the production Vite build passed.
+- **Steps 9–10 regression pass:** Full backend suite passed; full frontend suite passed (92 tests across 15 files); TypeScript lint and the production Vite build passed.
+- **Mainline CI acceptance:** PR #17 passed backend clean-exit, frontend contract/tests, Step 5 backend, bridge broker, native C++, and ESP32 compilation checks before merge.
 - **Live AI/visual acceptance:** `qwen35-uncensored:latest` returned grounded responses while deterministic routing selected snapshot-pinned Fridge severity and top-entity views; persisted top-finding and top-entity datasets resolved successfully.
 - **Dataset acceptance:** HAI ICS (300 wide telemetry rows), IoT-23 (1,000 flows), TON_IoT refrigerator (1,000 readings), CASAS Milan (1,000 sensor events), and simulation samples are cataloged with checksums and device descriptions.
 
 ## Closeout Note
-This report is the consolidated handoff record through 12 September 2026 and commit `a1962a2`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, and grounded local-AI chat are embedded in the codebase. Remaining roadmap work is explicitly retained only under Steps 7, 11, and 12 rather than being inferred as complete.
+This report is the consolidated handoff record through 13 September 2026 and the `main` merge commit `6428570`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, and compact interactive assistant workspace are embedded in the mainline codebase. Remaining roadmap work is explicitly retained only under Steps 7, 11, and 12 rather than being inferred as complete.
