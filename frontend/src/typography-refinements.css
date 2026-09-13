@@ -8,7 +8,7 @@
 .panel-head,
 .table-panel,
 .state-box,
-.settings-notice,
+.workspace-notice,
 .record-detail-panel,
 .source-format-guide,
 .analysis-snapshot-banner {
@@ -1061,14 +1061,14 @@ button.button {
   line-height: 1.5;
 }
 
-.settings-notice,
+.workspace-notice,
 .source-format-guide,
 .analysis-snapshot-banner,
 .record-detail-panel {
   overflow-wrap: anywhere;
 }
 
-.settings-notice p,
+.workspace-notice p,
 .source-format-guide p,
 .source-format-guide li,
 .analysis-snapshot-banner p,
@@ -1421,46 +1421,26 @@ button.button {
   flex-wrap: wrap;
 }
 
-/* Assistant, live monitor, settings, and system status */
+/* Assistant, live monitor, and system status */
 .assistant-context-action,
 .assistant-scope-panel b,
 .global-pins p,
 .retrieved-context > p,
 .retrieved-context > div:first-child b,
-.feed-indicators em,
-.settings-scope,
-.settings-nav-label,
-.settings-nav button small,
-.settings-nav-foot b,
-.settings-nav-foot span,
-.setting-control small,
-.settings-runtime-card p {
+.feed-indicators em {
   font-size: 0.625rem;
   line-height: 1.5;
 }
 
 .assistant-scope-panel select,
 .global-assistant-workspace .suggested-prompts button,
-.settings-notice b,
-.settings-nav button b,
-.settings-panel-head p,
-.settings-section > header p,
-.setting-row p,
-.setting-control b,
-.setting-control select,
-.setting-control input,
-.settings-runtime-card b,
-.settings-unavailable b,
-.settings-unavailable p,
-.settings-save > span,
+.workspace-notice b,
 .capability-table > div,
 .notes-list p {
   font-size: 0.6875rem;
   line-height: 1.5;
 }
 
-.setting-row b,
-.settings-section > header h3,
 .notes-list b {
   font-size: 0.75rem;
   line-height: 1.4;

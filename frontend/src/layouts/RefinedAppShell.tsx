@@ -3,7 +3,7 @@ import { useSystemHealth } from "../health/SystemHealthContext";
 
 interface RouteState { path: string; search: string; navigate: (path: string) => void; }
 
-type IconName = "overview" | "assistant" | "cases" | "live" | "import" | "status" | "settings";
+type IconName = "overview" | "assistant" | "cases" | "live" | "import" | "status";
 type NavItem = { path: string; label: string; icon: IconName };
 
 const investigationNav: NavItem[] = [
@@ -17,7 +17,6 @@ const operationsNav: NavItem[] = [
 ];
 const systemNav: NavItem[] = [
   { path: "/status", label: "System Status", icon: "status" },
-  { path: "/settings", label: "Settings", icon: "settings" },
 ];
 
 function NavIcon({ name }: { name: IconName }) {
@@ -28,7 +27,6 @@ function NavIcon({ name }: { name: IconName }) {
     live: <><path d="M5.6 18.4a9 9 0 0 1 0-12.8M8.5 15.5a5 5 0 0 1 0-7M18.4 5.6a9 9 0 0 1 0 12.8M15.5 8.5a5 5 0 0 1 0 7"/><circle cx="12" cy="12" r="2"/></>,
     import: <><path d="M12 15V3M7.5 7.5 12 3l4.5 4.5M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></>,
     status: <><path d="M3 12h4l2.2-5 4.1 10 2.2-5H21"/><path d="M20 7a9 9 0 1 0 .5 9"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.38.38.72.7 1 .3.25.7.4 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.8.6Z"/></>,
   };
   return <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -70,7 +68,7 @@ function Breadcrumbs({ path, navigate }: { path: string; navigate: (path: string
     const section = parts[2] ? parts[2].charAt(0).toUpperCase() + parts[2].slice(1) : "Overview";
     return <div className="breadcrumbs"><button onClick={() => navigate("/cases")}>Cases</button><span>/</span><button onClick={() => navigate(`/cases/${parts[1]}/overview`)}>CASE-{parts[1].padStart(4, "0")}</button><span>/</span><b>{section}</b></div>;
   }
-  const labels: Record<string, string> = { "/": "Overview", "/assistant": "Investigation Assistant", "/cases": "Cases", "/live": "Live Monitor", "/import": "Import Evidence", "/status": "System Status", "/settings": "Settings" };
+  const labels: Record<string, string> = { "/": "Overview", "/assistant": "Investigation Assistant", "/cases": "Cases", "/live": "Live Monitor", "/import": "Import Evidence", "/status": "System Status" };
   return <div className="breadcrumbs breadcrumbs-single"><b>{labels[path] || "Traceveil"}</b></div>;
 }
 
