@@ -194,6 +194,23 @@ export interface paths {
         patch: operations["update_alert_workflow_api_v1_cases__case_id__alerts__alert_id__patch"];
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/alerts/{alert_id}/email-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Alert Email Draft */
+        post: operations["create_alert_email_draft_api_v1_cases__case_id__alerts__alert_id__email_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/analyses": {
         parameters: {
             query?: never;
@@ -410,6 +427,23 @@ export interface paths {
         get: operations["list_incidents_api_v1_cases__case_id__incidents_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/incidents/{incident_id}/email-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Incident Email Draft */
+        post: operations["create_incident_email_draft_api_v1_cases__case_id__incidents__incident_id__email_drafts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2313,6 +2347,11 @@ export interface components {
             };
             /** Started At */
             started_at: string | null;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
             /** Tags */
             tags?: string[];
         };
@@ -3227,6 +3266,42 @@ export interface operations {
             };
         };
     };
+    create_alert_email_draft_api_v1_cases__case_id__alerts__alert_id__email_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailDraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     analyses_api_v1_cases__case_id__analyses_get: {
         parameters: {
             query?: {
@@ -3700,6 +3775,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageResponse_Incident_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_incident_email_draft_api_v1_cases__case_id__incidents__incident_id__email_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailDraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

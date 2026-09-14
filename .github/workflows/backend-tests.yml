@@ -8,7 +8,7 @@ on:
 jobs:
   pytest-clean-exit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -22,7 +22,14 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
       - name: Run pytest with a clean-exit deadline
-        run: python scripts/run_pytest_cleanly.py --timeout 180 -- -q
+        # Raised from 180s for Step 7: the real-time tests exercise the SSE
+        # endpoint against a real uvicorn server (Starlette's TestClient
+        # cannot terminate an infinite SSE generator), which adds roughly
+        # 45s locally. Raised again for Step 11: its alerting tests drive
+        # ten live telemetry submissions per case through the real worker.
+        # The full suite runs in about 270s locally, so 600s leaves
+        # headroom on a slower hosted runner.
+        run: python scripts/run_pytest_cleanly.py --timeout 600 -- -q
 
   frontend-contract-and-tests:
     runs-on: ubuntu-latest
