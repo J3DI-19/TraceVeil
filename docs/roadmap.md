@@ -1,6 +1,6 @@
 # Traceveil Roadmap
 
-> Current software status (12 September 2026): 145 of 176 roadmap items are complete (82.4%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, and grounded local-AI investigation chat are implemented. The 31 remaining items are confined to real-time browser delivery, reporting automation, and physical hardware acceptance.
+> Current software status (14 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery, and approval-gated alert, notification and reporting automation are implemented. The 11 remaining items are confined to physical hardware acceptance.
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
@@ -127,16 +127,34 @@ Derived artifacts are persisted and exposed through the Step 8 APIs; real-time
 browser delivery remains Step 7.
 
 ## 7. Real-Time Event Delivery
-- [ ] Add backend real-time event delivery
-- [ ] Select SSE or WebSocket transport based on implementation needs
-- [ ] Stream accepted live events to the frontend
-- [ ] Stream generated alerts to the frontend
-- [ ] Update device status in near real time
-- [ ] Update timelines when relevant live events arrive
-- [ ] Update dashboard metrics from validated backend data
-- [ ] Handle temporary frontend/backend disconnections
-- [ ] Add safe reconnect behaviour
-- [ ] Ensure real-time delivery does not alter forensic calculations
+- [x] Add backend real-time event delivery
+- [x] Select SSE or WebSocket transport based on implementation needs
+- [x] Stream accepted live events to the frontend
+- [x] Stream generated alerts to the frontend
+- [x] Update device status in near real time
+- [x] Update timelines when relevant live events arrive
+- [x] Update dashboard metrics from validated backend data
+- [x] Handle temporary frontend/backend disconnections
+- [x] Add safe reconnect behaviour
+- [x] Ensure real-time delivery does not alter forensic calculations
+
+**Current result:** Step 7 is complete. Persisted live results reach the browser
+over Server-Sent Events at `/api/v1/live/stream`, backed by a durable, bounded
+`stream_messages` log and filtered by case, session and topic. Six topics are
+published alongside an idle heartbeat; the new `timeline.updated` signal carries
+only a case id, analysis id and entry count, so the incident timeline and the
+dashboard metrics are always refetched from validated backend records rather
+than assembled in the browser. The client retries with exponential backoff and
+jitter, resumes with `Last-Event-ID`, stops on non-retryable responses, and
+suppresses duplicate stream ids; pausing the display never stops backend
+capture. Delivery is read-only by construction and asserted to be so: repeated
+reads, mid-stream replay, real HTTP streaming and a consumer polling during
+ingestion all leave evidence, canonical events, analysis runs and every analysis
+artifact byte-identical, with a post-stream recomputation resolving to the same
+content-addressed `analysis_id`. The SSE endpoint is exercised against a real
+uvicorn server rather than an in-process test client. Physical-hardware
+acceptance of live delivery remains Step 12. See
+[the Step 7 verification](step-7-verification.md).
 
 ## 8. Dashboard Results and Investigation APIs
 - [x] Create APIs for cases
@@ -232,16 +250,33 @@ visuals to their originating response. Offline or invalid model output still
 completes with a clearly labelled deterministic explanation.
 
 ## 11. Alerts, Email, Reports and Automation
-- [ ] Add SMTP setup
-- [ ] Generate alert email drafts
-- [ ] Support drafts for live detected incidents
-- [ ] Require investigator approval before sending
-- [ ] Add report export
-- [ ] Auto-run analysis after batch upload
-- [ ] Automatically process validated incoming live events
-- [ ] Auto-group related alerts
-- [ ] Create deterministic incident summaries before AI narration
-- [ ] Preserve alert and notification audit history
+- [x] Add SMTP setup
+- [x] Generate alert email drafts
+- [x] Support drafts for live detected incidents
+- [x] Require investigator approval before sending
+- [x] Add report export
+- [x] Auto-run analysis after batch upload
+- [x] Automatically process validated incoming live events
+- [x] Auto-group related alerts
+- [x] Create deterministic incident summaries before AI narration
+- [x] Preserve alert and notification audit history
+
+**Current result:** Step 11 is complete. Every incident now carries a
+backend-authored `summary` assembled only from the deterministic engine's own
+severity, risk, counts and observed window, produced before any model is
+consulted and reproduced byte for byte on recomputation; the exported report
+renders those summaries above the AI narrative, which is labelled
+non-authoritative. Notification drafts are subject-agnostic: they may be raised
+against an approved report as before, or directly against a deterministic alert
+or incident with no report required and no PDF attached, which makes them usable
+while an investigation is still live. The recipient allow-list, investigator
+approval, content-hash pinning (now covering the subject artifact's own hash, so
+re-analysis invalidates a stale approval), send idempotency and the audit trail
+apply identically to all three subject types, and pre-Step-11 report approvals
+remain valid. The completion run passed the full backend suite (189 tests,
+including 14 new Step 11 tests) with a clean process exit and no leaked worker
+threads, the OpenAPI contract check, all 96 frontend tests, the TypeScript
+type-check, and the production build. See `docs/step-11-verification.md`.
 
 ## 12. Physical Live Demonstration
 - [ ] Assemble the Arduino and IoT laboratory setup

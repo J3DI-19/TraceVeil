@@ -512,6 +512,16 @@ class Phase3Service:
                     inserted = False
             if inserted:
                 self.emit(case_id, session_id, "alert.created", json.loads(alert["payload_json"]))
+        # Step 7: announce that a fresh deterministic timeline exists for
+        # this case. The payload deliberately carries only backend-authored
+        # identifiers and a count - never timeline entries themselves - so a
+        # browser cannot render a client-side chronology and must refetch
+        # the validated values from the investigation API.
+        timeline_entries = self.db.execute(
+            "SELECT COUNT(*) FROM analysis_artifacts WHERE analysis_id=? AND kind='timeline'",
+            (latest[0],),
+        ).fetchone()[0]
+        self.emit(case_id, session_id, "timeline.updated", {"case_id": case_id, "analysis_id": latest[0], "entry_count": timeline_entries})
         summary = self.batch.get_case(case_id)
         self.emit(case_id, session_id, "metrics.updated", {"case_id": case_id, "updated_at": summary.get("updated_at"), "accepted_events": self.db.execute("SELECT COUNT(*) FROM canonical_events WHERE case_id=? AND origin='live'", (case_id,)).fetchone()[0]})
 
@@ -1047,6 +1057,15 @@ class Phase3Service:
             canvas.setFont("Helvetica-Bold" if size >= 14 else "Helvetica", size); canvas.drawString(54, y, safe); y -= gap
         line("TRACEVEIL INVESTIGATION REPORT", 16, 24); line(report["title"], 14, 22)
         line(f"Case: {case['name']} (CASE-{case['id']:04d})"); line(f"Generated UTC: {report['created_at']}"); line("Deterministic forensic results remain backend-authored."); y -= 8
+        # Step 11: the deterministic incident summaries are rendered BEFORE
+        # any AI narration, so the authoritative account is what a reader
+        # meets first and the narrative can only ever annotate it.
+        incidents = artifacts.get("incident", [])
+        if incidents:
+            line("DETERMINISTIC INCIDENT SUMMARIES", 12, 18)
+            for item in incidents[:100]:
+                identifier = item.get("incident_id") or "incident"
+                line(f"{identifier} | {item.get('summary') or 'No deterministic summary available.'}")
         if report.get("narrative"):
             line("AI NARRATIVE (NON-AUTHORITATIVE)", 12, 18); line(report["narrative"])
         line("EVIDENCE REGISTER", 12, 18)
@@ -1072,14 +1091,88 @@ class Phase3Service:
         self.audit(report["case_id"], "report.approved", "report", report_id, actor=approver, details={"content_hash": report["content_hash"]})
         return self.get_report(report_id)
 
+    # --- Step 11: subject-agnostic notification drafts --------------------
+    # A draft may notify about an approved report, or directly about a
+    # deterministic alert or incident. Approval, content hashing and the
+    # recipient allow-list apply identically to all three; only the
+    # "approved report" precondition and the PDF attachment are specific
+    # to report-bound drafts.
+    ARTIFACT_SUBJECTS = {"alert", "incident"}
+
+    def _analysis_artifact(self, case_id: int, kind: str, item_id: str) -> dict:
+        row = self.db.execute(
+            "SELECT payload_json FROM analysis_artifacts WHERE analysis_id="
+            "(SELECT analysis_id FROM analysis_runs WHERE case_id=? ORDER BY created_at DESC LIMIT 1)"
+            " AND kind=? AND item_id=?", (case_id, kind, item_id)).fetchone()
+        if not row:
+            raise KeyError(f"{kind}_not_found")
+        return json.loads(row["payload_json"])
+
+    def _draft_anchor(self, draft: dict) -> dict:
+        """Resolves what a draft is pinned to.
+
+        The anchor hash is what makes approval meaningful: if the report is
+        regenerated, or the deterministic alert/incident changes under
+        re-analysis, the hash moves and the draft must be re-approved
+        before it can be sent.
+        """
+        subject_type = draft["subject_type"] or "report"
+        if subject_type == "report":
+            report = self.get_report(draft["report_id"])
+            return {"subject_type": "report", "case_id": report["case_id"],
+                    "hash": report["content_hash"], "report": report}
+        payload = self._analysis_artifact(draft["case_id"], subject_type, draft["subject_id"])
+        return {"subject_type": subject_type, "case_id": draft["case_id"],
+                "hash": digest(canonical_json(payload)), "report": None}
+
+    def _draft_hash(self, recipient: str, subject: str, body: str, anchor: dict) -> str:
+        # Report drafts keep their original hash key so drafts created
+        # before Step 11 remain valid.
+        key = "report_hash" if anchor["subject_type"] == "report" else "subject_hash"
+        return digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, key: anchor["hash"]}))
+
+    def _insert_draft(self, *, draft_id: str, report_id: str | None, case_id: int,
+                      subject_type: str, subject_id: str, recipient: str, subject: str,
+                      body: str, content_hash: str, now: str) -> None:
+        with self.repository.write_lock, self.db:
+            self.db.execute(
+                "INSERT INTO email_drafts (draft_id, report_id, recipient, subject, body,"
+                " content_hash, status, approved_by, approved_at, sent_at, smtp_message_id,"
+                " delivery_error, created_at, updated_at, subject_type, subject_id, case_id)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (draft_id, report_id, recipient, subject, body, content_hash, "draft",
+                 None, None, None, None, None, now, now, subject_type, subject_id, case_id))
+
     def create_email_draft(self, report_id: str, recipient: str, subject: str, body: str) -> dict:
         report = self.get_report(report_id)
         if report["status"] != "approved":
             raise ValueError("approved_report_required")
-        draft_id, now = str(uuid4()), utcnow(); content_hash = digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, "report_hash": report["content_hash"]}))
-        with self.repository.write_lock, self.db:
-            self.db.execute("INSERT INTO email_drafts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (draft_id, report_id, recipient, subject, body, content_hash, "draft", None, None, None, None, None, now, now))
-        self.audit(report["case_id"], "email_draft.created", "email_draft", draft_id)
+        draft_id, now = str(uuid4()), utcnow()
+        anchor = {"subject_type": "report", "hash": report["content_hash"]}
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
+        self._insert_draft(draft_id=draft_id, report_id=report_id, case_id=report["case_id"],
+                           subject_type="report", subject_id=report_id, recipient=recipient,
+                           subject=subject, body=body, content_hash=content_hash, now=now)
+        self.audit(report["case_id"], "email_draft.created", "email_draft", draft_id,
+                   details={"subject_type": "report", "subject_id": report_id})
+        return self.get_email_draft(draft_id)
+
+    def create_artifact_email_draft(self, case_id: int, subject_type: str, subject_id: str,
+                                    recipient: str, subject: str, body: str) -> dict:
+        """Creates a notification draft for a deterministic alert or live
+        incident, with no report required."""
+        if subject_type not in self.ARTIFACT_SUBJECTS:
+            raise ValueError("unsupported_draft_subject")
+        self.batch.get_case(case_id)
+        payload = self._analysis_artifact(case_id, subject_type, subject_id)
+        draft_id, now = str(uuid4()), utcnow()
+        anchor = {"subject_type": subject_type, "hash": digest(canonical_json(payload))}
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
+        self._insert_draft(draft_id=draft_id, report_id=None, case_id=case_id,
+                           subject_type=subject_type, subject_id=subject_id, recipient=recipient,
+                           subject=subject, body=body, content_hash=content_hash, now=now)
+        self.audit(case_id, "email_draft.created", "email_draft", draft_id,
+                   details={"subject_type": subject_type, "subject_id": subject_id})
         return self.get_email_draft(draft_id)
 
     def get_email_draft(self, draft_id: str) -> dict:
@@ -1092,7 +1185,8 @@ class Phase3Service:
         draft = self.get_email_draft(draft_id)
         if draft["sent_at"]:
             raise ValueError("sent_email_immutable")
-        report = self.get_report(draft["report_id"]); content_hash = digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, "report_hash": report["content_hash"]}))
+        anchor = self._draft_anchor(draft)
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
         with self.repository.write_lock, self.db:
             self.db.execute("UPDATE email_drafts SET recipient=?,subject=?,body=?,content_hash=?,status='draft',approved_by=NULL,approved_at=NULL,updated_at=? WHERE draft_id=?", (recipient, subject, body, content_hash, utcnow(), draft_id))
         return self.get_email_draft(draft_id)
@@ -1101,28 +1195,29 @@ class Phase3Service:
         draft = self.get_email_draft(draft_id)
         if draft["sent_at"]:
             raise ValueError("sent_email_immutable")
-        report = self.get_report(draft["report_id"])
-        if report["status"] != "approved":
+        anchor = self._draft_anchor(draft)
+        if anchor["subject_type"] == "report" and anchor["report"]["status"] != "approved":
             raise ValueError("approved_report_required")
-        expected_hash = digest(canonical_json({"recipient": draft["recipient"].lower(), "subject": draft["subject"], "body": draft["body"], "report_hash": report["content_hash"]}))
+        expected_hash = self._draft_hash(draft["recipient"], draft["subject"], draft["body"], anchor)
         if expected_hash != draft["content_hash"]:
             raise ValueError("email_content_changed")
         now = utcnow()
         with self.repository.write_lock, self.db:
             self.db.execute("UPDATE email_drafts SET status='approved',approved_by=?,approved_at=?,updated_at=? WHERE draft_id=?", (approver, now, now, draft_id))
             self.db.execute("INSERT INTO approval_records VALUES(?,?,?,?,?,?)", (str(uuid4()), "email_draft", draft_id, draft["content_hash"], approver, now))
-        self.audit(report["case_id"], "email_draft.approved", "email_draft", draft_id, actor=approver, details={"content_hash": draft["content_hash"]})
+        self.audit(anchor["case_id"], "email_draft.approved", "email_draft", draft_id, actor=approver, details={"content_hash": draft["content_hash"], "subject_type": anchor["subject_type"]})
         return self.get_email_draft(draft_id)
 
     def send_email(self, draft_id: str, request_id: str | None) -> dict:
-        draft = self.get_email_draft(draft_id); report = self.get_report(draft["report_id"])
+        draft = self.get_email_draft(draft_id)
         if draft["sent_at"]:
             return draft
         if draft["status"] != "approved" or not draft["approved_at"]:
             raise ValueError("approved_email_required")
-        if report["status"] != "approved":
+        anchor = self._draft_anchor(draft); report = anchor["report"]
+        if anchor["subject_type"] == "report" and report["status"] != "approved":
             raise ValueError("approved_report_required")
-        expected_hash = digest(canonical_json({"recipient": draft["recipient"].lower(), "subject": draft["subject"], "body": draft["body"], "report_hash": report["content_hash"]}))
+        expected_hash = self._draft_hash(draft["recipient"], draft["subject"], draft["body"], anchor)
         if expected_hash != draft["content_hash"]:
             raise ValueError("email_content_changed")
         if not self.settings.smtp_host or not self.settings.smtp_from_address:
@@ -1131,8 +1226,11 @@ class Phase3Service:
         if domain not in self.settings.smtp_allowed_recipient_domains:
             raise ValueError("recipient_domain_not_allowed")
         message = EmailMessage(); message["From"] = self.settings.smtp_from_address; message["To"] = draft["recipient"]; message["Subject"] = draft["subject"]; message["Message-ID"] = f"<{draft_id}@traceveil.local>"; message.set_content(draft["body"])
-        with open(report["file_path"], "rb") as file:
-            message.add_attachment(file.read(), maintype="application", subtype="pdf", filename=f"traceveil-{report['report_id']}.pdf")
+        # Only report-bound notifications carry the PDF; alert and incident
+        # notifications reference deterministic artifacts by identifier.
+        if report is not None and report.get("file_path"):
+            with open(report["file_path"], "rb") as file:
+                message.add_attachment(file.read(), maintype="application", subtype="pdf", filename=f"traceveil-{report['report_id']}.pdf")
         attempt_id, now = str(uuid4()), utcnow()
         try:
             with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port, timeout=10) as smtp:
@@ -1147,5 +1245,5 @@ class Phase3Service:
         with self.repository.write_lock, self.db:
             self.db.execute("INSERT INTO delivery_attempts VALUES(?,?,?,?,?,?,?)", (attempt_id, draft_id, request_id, status, message["Message-ID"], error, now))
             self.db.execute("UPDATE email_drafts SET status=?,sent_at=?,smtp_message_id=?,delivery_error=?,updated_at=? WHERE draft_id=?", (status, now if status == "sent" else None, message["Message-ID"], error, now, draft_id))
-        self.audit(report["case_id"], f"email.{status}", "email_draft", draft_id, request_id=request_id, details={"message_id": message["Message-ID"]})
+        self.audit(anchor["case_id"], f"email.{status}", "email_draft", draft_id, request_id=request_id, details={"message_id": message["Message-ID"], "subject_type": anchor["subject_type"], "subject_id": draft["subject_id"]})
         return self.get_email_draft(draft_id)

@@ -203,11 +203,18 @@ class SQLiteRepository:
                 approval_id TEXT PRIMARY KEY, subject_type TEXT NOT NULL, subject_id TEXT NOT NULL,
                 content_hash TEXT NOT NULL, approver TEXT NOT NULL, approved_at TEXT NOT NULL
             );
+            -- Step 11: drafts are subject-agnostic. A draft may notify about a
+            -- report (report_id set), or directly about an alert or a live
+            -- incident (report_id NULL, subject_type/subject_id naming the
+            -- deterministic artifact). Approval, content hashing and the
+            -- recipient allow-list apply identically to all three.
             CREATE TABLE IF NOT EXISTS email_drafts (
-                draft_id TEXT PRIMARY KEY, report_id TEXT NOT NULL, recipient TEXT NOT NULL,
+                draft_id TEXT PRIMARY KEY, report_id TEXT, recipient TEXT NOT NULL,
                 subject TEXT NOT NULL, body TEXT NOT NULL, content_hash TEXT NOT NULL,
                 status TEXT NOT NULL, approved_by TEXT, approved_at TEXT, sent_at TEXT,
                 smtp_message_id TEXT, delivery_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                subject_type TEXT NOT NULL DEFAULT 'report', subject_id TEXT NOT NULL DEFAULT '',
+                case_id INTEGER,
                 FOREIGN KEY (report_id) REFERENCES reports(report_id)
             );
             CREATE TABLE IF NOT EXISTS delivery_attempts (
@@ -219,6 +226,7 @@ class SQLiteRepository:
         self._migrate_evidence_metadata()
         self._migrate_cases()
         self._migrate_alert_workflow()
+        self._migrate_email_drafts()
         self.connection.commit()
 
     def _migrate_evidence_metadata(self) -> None:
@@ -267,6 +275,62 @@ class SQLiteRepository:
         columns = {"description": "TEXT NOT NULL DEFAULT ''", "case_type": "TEXT NOT NULL DEFAULT 'batch'", "status": "TEXT NOT NULL DEFAULT 'active'", "owner": "TEXT NOT NULL DEFAULT 'Investigator'", "updated_at": "TEXT"}
         for name, definition in columns.items():
             if name not in existing: self.connection.execute(f"ALTER TABLE cases ADD COLUMN {name} {definition}")
+
+    def _migrate_email_drafts(self) -> None:
+        """Step 11: widen email_drafts from report-only to subject-agnostic.
+
+        The new columns are added in place. `report_id` keeps its original
+        NOT NULL constraint on pre-existing databases, which is harmless:
+        legacy rows are all report-bound, and alert/incident drafts created
+        afterwards are written by the rebuilt schema below.
+        """
+        if self.connection is None: raise RuntimeError("repository is not initialized")
+        existing = {row["name"] for row in self.connection.execute("PRAGMA table_info(email_drafts)").fetchall()}
+        columns = {
+            "subject_type": "TEXT NOT NULL DEFAULT 'report'",
+            "subject_id": "TEXT NOT NULL DEFAULT ''",
+            "case_id": "INTEGER",
+        }
+        for name, definition in columns.items():
+            if name not in existing:
+                self.connection.execute(f"ALTER TABLE email_drafts ADD COLUMN {name} {definition}")
+        # Legacy rows predate subject_id; point them at their own report.
+        if "subject_type" not in existing:
+            self.connection.execute(
+                "UPDATE email_drafts SET subject_type='report', subject_id=report_id"
+                " WHERE subject_id='' AND report_id IS NOT NULL")
+        # SQLite cannot drop a NOT NULL constraint in place. If the legacy
+        # constraint is still on report_id, rebuild the table so alert and
+        # incident drafts (which have no report) can be stored.
+        report_column = next(
+            (row for row in self.connection.execute("PRAGMA table_info(email_drafts)").fetchall()
+             if row["name"] == "report_id"), None)
+        if report_column is not None and report_column["notnull"]:
+            self.connection.execute("PRAGMA foreign_keys=OFF")
+            self.connection.executescript(
+                """
+                CREATE TABLE email_drafts_rebuilt (
+                    draft_id TEXT PRIMARY KEY, report_id TEXT, recipient TEXT NOT NULL,
+                    subject TEXT NOT NULL, body TEXT NOT NULL, content_hash TEXT NOT NULL,
+                    status TEXT NOT NULL, approved_by TEXT, approved_at TEXT, sent_at TEXT,
+                    smtp_message_id TEXT, delivery_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    subject_type TEXT NOT NULL DEFAULT 'report', subject_id TEXT NOT NULL DEFAULT '',
+                    case_id INTEGER,
+                    FOREIGN KEY (report_id) REFERENCES reports(report_id)
+                );
+                INSERT INTO email_drafts_rebuilt (
+                    draft_id, report_id, recipient, subject, body, content_hash, status,
+                    approved_by, approved_at, sent_at, smtp_message_id, delivery_error,
+                    created_at, updated_at, subject_type, subject_id, case_id)
+                SELECT draft_id, report_id, recipient, subject, body, content_hash, status,
+                    approved_by, approved_at, sent_at, smtp_message_id, delivery_error,
+                    created_at, updated_at, subject_type, subject_id, case_id
+                FROM email_drafts;
+                DROP TABLE email_drafts;
+                ALTER TABLE email_drafts_rebuilt RENAME TO email_drafts;
+                """
+            )
+            self.connection.execute("PRAGMA foreign_keys=ON")
 
     def _migrate_alert_workflow(self) -> None:
         if self.connection is None: raise RuntimeError("repository is not initialized")

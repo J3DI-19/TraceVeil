@@ -3434,6 +3434,12 @@
             ],
             "title": "Started At"
           },
+          "summary": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Summary",
+            "type": "string"
+          },
           "tags": {
             "items": {
               "type": "string"
@@ -5495,6 +5501,66 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/alerts/{alert_id}/email-drafts": {
+      "post": {
+        "operationId": "create_alert_email_draft_api_v1_cases__case_id__alerts__alert_id__email_drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Alert Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Alert Email Draft",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/analyses": {
       "get": {
         "operationId": "analyses_api_v1_cases__case_id__analyses_get",
@@ -6603,6 +6669,66 @@
         "summary": "List Incidents",
         "tags": [
           "batch-investigation"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/incidents/{incident_id}/email-drafts": {
+      "post": {
+        "operationId": "create_incident_email_draft_api_v1_cases__case_id__incidents__incident_id__email_drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDraftBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Incident Email Draft",
+        "tags": [
+          "phase3"
         ]
       }
     },

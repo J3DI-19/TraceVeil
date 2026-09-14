@@ -315,6 +315,19 @@ def create_email_draft(report_id: UUID, body: EmailDraftBody, request: Request):
     return service(request).create_email_draft(str(report_id), str(body.recipient), body.subject, body.body)
 
 
+# Step 11: notification drafts for deterministic alerts and live incidents.
+# No report is required - the draft is pinned to the artifact's content hash,
+# and the same approval, hash and recipient allow-list gates apply.
+@router.post("/cases/{case_id}/alerts/{alert_id}/email-drafts", status_code=201)
+def create_alert_email_draft(case_id: int, alert_id: UUID, body: EmailDraftBody, request: Request):
+    return service(request).create_artifact_email_draft(case_id, "alert", str(alert_id), str(body.recipient), body.subject, body.body)
+
+
+@router.post("/cases/{case_id}/incidents/{incident_id}/email-drafts", status_code=201)
+def create_incident_email_draft(case_id: int, incident_id: UUID, body: EmailDraftBody, request: Request):
+    return service(request).create_artifact_email_draft(case_id, "incident", str(incident_id), str(body.recipient), body.subject, body.body)
+
+
 @router.get("/email-drafts/{draft_id}")
 def get_email_draft(draft_id: UUID, request: Request):
     return service(request).get_email_draft(str(draft_id))

@@ -3,7 +3,7 @@ import { apiClient } from "./batch";
 export interface LiveSession { session_id: string; case_id: number; label: string; source_ids: string[]; status: "active" | "completed"; stale_after_seconds: number; accepted_count: number; malformed_count: number; started_at: string; stopped_at: string | null; updated_at: string }
 export interface LiveMetrics { case_id: number; session_id: string | null; device_count: number; event_count: number; alert_count: number; malformed_count: number; updated_at: string | null }
 export interface DeviceState { case_id: number; session_id: string; device_id: string; source_id: string; last_seen_at: string; last_observed_at: string; latest_metrics: Record<string, string | number | boolean | null>; event_count: number; stale: boolean }
-export type StreamTopic = "event.accepted" | "alert.created" | "device.updated" | "metrics.updated" | "session.updated" | "heartbeat";
+export type StreamTopic = "event.accepted" | "alert.created" | "device.updated" | "metrics.updated" | "timeline.updated" | "session.updated" | "heartbeat";
 export interface StreamEnvelope { schema_version: "1.0"; id?: number; topic: StreamTopic; case_id?: number; session_id?: string | null; occurred_at?: string; payload?: Record<string, unknown> }
 export type VisualizationType = "timeline" | "risk_breakdown" | "severity_distribution" | "event_activity" | "entity_graph" | "evidence_table" | "alert_list" | "top_entities" | "top_findings";
 export interface VisualizationComponent { id: string; type: VisualizationType; title: string; data_ref: string; span: 1 | 2 | 3; height: "compact" | "standard" | "tall" }
