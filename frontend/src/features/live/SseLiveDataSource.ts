@@ -5,11 +5,11 @@ export type ConnectionState = "connecting" | "connected" | "reconnecting" | "sta
 
 export class SseLiveDataSource {
   private lastId = 0;
-  async connect(options: { caseId: number; sessionId?: string; signal: AbortSignal; onState: (state: ConnectionState) => void; onMessage: (message: StreamEnvelope) => void; onError: (message: string) => void }) {
+  async connect(options: { caseId: number; sessionId?: string; topics?: string[]; signal: AbortSignal; onState: (state: ConnectionState) => void; onMessage: (message: StreamEnvelope) => void; onError: (message: string) => void }) {
     let attempt = 0; options.onState("connecting");
     while (!options.signal.aborted) {
       try {
-        const query = new URLSearchParams({ case_id: String(options.caseId) }); if (options.sessionId) query.set("session_id", options.sessionId);
+        const query = new URLSearchParams({ case_id: String(options.caseId) }); if (options.sessionId) query.set("session_id", options.sessionId); if (options.topics?.length) query.set("topics", options.topics.join(","));
         const response = await fetch(`/api/v1/live/stream?${query}`, { signal: options.signal, headers: this.lastId ? { "Last-Event-ID": String(this.lastId) } : undefined });
         if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
           options.onState("terminal-error"); options.onError(`Stream access failed with status ${response.status}.`); return;
