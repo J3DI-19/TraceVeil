@@ -114,6 +114,20 @@ class EmailDraftBody(BaseModel):
     body: str = Field(min_length=1, max_length=20000)
 
 
+class ArtifactEmailDraftBody(BaseModel):
+    """Step 11: an artifact notification needs only a recipient.
+
+    `subject` and `body` are optional investigator edits. When they are
+    omitted the backend composes both from the persisted alert or
+    incident, so the draft's text can never drift away from the artifact
+    it is anchored to.
+    """
+
+    recipient: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=320)
+    subject: str | None = Field(default=None, min_length=1, max_length=300)
+    body: str | None = Field(default=None, min_length=1, max_length=20000)
+
+
 @router.post("/cases/{case_id}/live-sessions", status_code=201)
 def start_session(case_id: int, body: LiveSessionCreate, request: Request):
     return service(request).start_live_session(case_id, body.label, body.source_ids, body.stale_after_seconds, getattr(request.state, "request_id", None))
@@ -197,11 +211,25 @@ def live_metrics(case_id: int, request: Request, session_id: UUID | None = None)
 async def live_stream(request: Request, case_id: int | None = None, session_id: UUID | None = None, topics: str = "", last_event_id: int | None = Header(default=None, alias="Last-Event-ID")):
     selected = [item.strip() for item in topics.split(",") if item.strip()]
     start = last_event_id or 0
+<<<<<<< HEAD
     async def generate():
         cursor, last_heartbeat = start, 0.0
+    # and resuming silently would drop them from the feed with no signal.
+    # A versioned control frame is emitted first instead, telling the
+    # client to resynchronise from the authoritative APIs and giving it the
+    # cursor to resume from.
+    reset = service(request).stream_gap(start, case_id, str(session_id) if session_id else None)
+    async def generate():
+        cursor, last_heartbeat = start, 0.0
+        if reset is not None:
+            cursor = reset["resume_from"]
+            envelope = {"schema_version": "1.0", "id": cursor, "topic": "stream.reset",
+                        "case_id": case_id, "session_id": str(session_id) if session_id else None,
+                        "payload": reset}
+            yield f"id: {cursor}\nevent: stream.reset\ndata: {json.dumps(envelope, separators=(',', ':'))}\n\n"
+>>>>>>> 7c75c99 (Ayra-step7,11 fixes)
         while not await request.is_disconnected():
             messages = service(request).stream_after(cursor, case_id, str(session_id) if session_id else None, selected)
-            if messages:
                 for message in messages:
                     cursor = message["stream_id"]
                     envelope = {"schema_version": "1.0", "id": cursor, "topic": message["topic"], "case_id": message["case_id"], "session_id": message["session_id"], "occurred_at": message["occurred_at"], "payload": message["payload"]}
@@ -315,6 +343,37 @@ def create_email_draft(report_id: UUID, body: EmailDraftBody, request: Request):
     return service(request).create_email_draft(str(report_id), str(body.recipient), body.subject, body.body)
 
 
+# Step 11: notification drafts for deterministic alerts and live incidents.
+# No report is required - the draft is pinned to the artifact's content hash,
+# and the same approval, hash and recipient allow-list gates apply.
+@router.post("/cases/{case_id}/alerts/{alert_id}/email-drafts", status_code=201)
+def create_alert_email_draft(case_id: int, alert_id: UUID, body: ArtifactEmailDraftBody, request: Request):
+    return service(request).create_artifact_email_draft(case_id, "alert", str(alert_id), str(body.recipient), body.subject, body.body)
+@router.post("/cases/{case_id}/incidents/{incident_id}/email-drafts", status_code=201)
+def create_incident_email_draft(case_id: int, incident_id: UUID, body: ArtifactEmailDraftBody, request: Request):
+    return service(request).create_artifact_email_draft(case_id, "incident", str(incident_id), str(body.recipient), body.subject, body.body)
+
+
+# The composed text is readable before a draft exists, so the investigator
+# reviews backend-authored content rather than approving text they cannot
+# see until after a record has been written.
+@router.get("/cases/{case_id}/alerts/{alert_id}/notification-preview")
+def preview_alert_notification(case_id: int, alert_id: UUID, request: Request):
+    return service(request).compose_artifact_draft(case_id, "alert", str(alert_id))
+
+
+@router.get("/cases/{case_id}/incidents/{incident_id}/notification-preview")
+def preview_incident_notification(case_id: int, incident_id: UUID, request: Request):
+    return service(request).compose_artifact_draft(case_id, "incident", str(incident_id))
+
+
+# Drafts must survive navigation and refresh, so they are listable by the
+# artifact they belong to as well as by the case.
+@router.get("/cases/{case_id}/email-drafts")
+def list_case_email_drafts(case_id: int, request: Request, subject_type: str | None = None, subject_id: str | None = None):
+    return service(request).list_email_drafts(case_id, subject_type, subject_id)
+
+
 @router.get("/email-drafts/{draft_id}")
 def get_email_draft(draft_id: UUID, request: Request):
     return service(request).get_email_draft(str(draft_id))
@@ -322,7 +381,6 @@ def get_email_draft(draft_id: UUID, request: Request):
 
 @router.patch("/email-drafts/{draft_id}")
 def patch_email_draft(draft_id: UUID, body: EmailDraftBody, request: Request):
-    return service(request).update_email_draft(str(draft_id), str(body.recipient), body.subject, body.body)
 
 
 @router.post("/email-drafts/{draft_id}/approve")
