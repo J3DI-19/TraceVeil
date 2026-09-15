@@ -2,8 +2,16 @@ import { apiClient } from "./batch";
 
 export interface LiveSession { session_id: string; case_id: number; label: string; source_ids: string[]; status: "active" | "completed"; stale_after_seconds: number; accepted_count: number; malformed_count: number; started_at: string; stopped_at: string | null; updated_at: string }
 export interface LiveMetrics { case_id: number; session_id: string | null; device_count: number; event_count: number; alert_count: number; malformed_count: number; updated_at: string | null }
-export interface DeviceState { case_id: number; session_id: string; device_id: string; source_id: string; last_seen_at: string; last_observed_at: string; latest_metrics: Record<string, string | number | boolean | null>; event_count: number; stale: boolean }
-export type StreamTopic = "event.accepted" | "alert.created" | "device.updated" | "metrics.updated" | "session.updated" | "heartbeat";
+/** Backend-authored connection state. `offline` means the device reported
+ *  its link down; `stale` means nothing has been accepted from it within
+ *  its own session's threshold. Never inferred in the browser. */
+export type DeviceConnectionState = "online" | "stale" | "offline";
+export interface DeviceState { case_id: number; session_id: string; device_id: string; source_id: string; last_seen_at: string; last_observed_at: string; latest_metrics: Record<string, string | number | boolean | null>; event_count: number; stale: boolean; connection_state: DeviceConnectionState; stale_after_seconds: number }
+export type StreamTopic = "event.accepted" | "alert.created" | "device.updated" | "metrics.updated" | "timeline.updated" | "session.updated" | "heartbeat" | "stream.reset";
+/** Emitted when a Last-Event-ID cursor has fallen outside the retained
+ *  window. The client must refetch the named authoritative resources and
+ *  resume from `resume_from` rather than silently continuing with a gap. */
+export interface StreamReset { schema_version: "1.0"; reason: "cursor_expired"; requested_from: number; earliest_retained: number | null; resume_from: number; resynchronize: string[] }
 export interface StreamEnvelope { schema_version: "1.0"; id?: number; topic: StreamTopic; case_id?: number; session_id?: string | null; occurred_at?: string; payload?: Record<string, unknown> }
 export type VisualizationType = "timeline" | "risk_breakdown" | "severity_distribution" | "event_activity" | "entity_graph" | "evidence_table" | "alert_list" | "top_entities" | "top_findings";
 export interface VisualizationComponent { id: string; type: VisualizationType; title: string; data_ref: string; span: 1 | 2 | 3; height: "compact" | "standard" | "tall" }
@@ -14,7 +22,10 @@ export interface AssistantMessage { message_id: string; role: "user" | "assistan
 export interface AssistantJob { job_id: string; session_id: string; status: "queued" | "processing" | "completed" | "failed"; error: { code: string; message: string; retryable: boolean } | null }
 export type AssistantVisualizationMode = "none" | "auto" | "timeline" | "severity_distribution" | "event_activity" | "entity_graph" | "top_entities" | "top_findings";
 export interface ReportRecord { report_id: string; case_id: number; title: string; sections: string[]; status: "draft" | "generated" | "approved"; narrative: string | null; content_hash: string | null; approved_by: string | null; approved_at: string | null; created_at: string; updated_at: string }
-export interface EmailDraft { draft_id: string; report_id: string; recipient: string; subject: string; body: string; status: "draft" | "approved" | "sent" | "delivery_unknown"; approved_at: string | null; delivery_error: string | null }
+export type NotificationSubject = "report" | "alert" | "incident";
+export interface EmailDraft { draft_id: string; report_id: string | null; case_id: number | null; subject_type: NotificationSubject; subject_id: string; recipient: string; subject: string; body: string; status: "draft" | "approved" | "sent" | "delivery_unknown"; approved_by: string | null; approved_at: string | null; sent_at: string | null; delivery_error: string | null }
+/** Backend-composed notification text, previewed before a draft exists. */
+export interface NotificationPreview { subject_type: NotificationSubject; subject_id: string; subject: string; body: string }
 export interface AuditEvent { audit_id: string; case_id: number | null; action: string; actor: string; subject_type: string; subject_id: string | null; request_id: string | null; details: Record<string, unknown>; occurred_at: string }
 interface Page<T> { items: T[]; total: number; page: number; page_size: number }
 
@@ -38,6 +49,16 @@ export const phase3Api = {
   approveReport(reportId: string, approver: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/approve`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approver, confirmed: true }) }); },
   downloadReport(reportId: string, signal?: AbortSignal) { return apiClient.download(`/reports/${reportId}/export`, signal); },
   createEmailDraft(reportId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/reports/${reportId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },
+  // Step 11: notification drafts for a deterministic alert or live incident.
+  // No report is required and no PDF is attached; the draft is pinned to the
+  // artifact's content hash, so re-analysis that changes it revokes approval.
+  notificationPreview(caseId: number, subjectType: "alert" | "incident", subjectId: string, signal?: AbortSignal) { return apiClient.request<NotificationPreview>(`/cases/${caseId}/${subjectType}s/${subjectId}/notification-preview`, { signal }); },
+  // `subject`/`body` are optional: omitting them asks the backend to compose
+  // grounded text from the persisted artifact rather than inventing any here.
+  createArtifactEmailDraft(caseId: number, subjectType: "alert" | "incident", subjectId: string, recipient: string, subject?: string, body?: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/cases/${caseId}/${subjectType}s/${subjectId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, ...(subject ? { subject } : {}), ...(body ? { body } : {}) }) }); },
+  emailDrafts(caseId: number, subjectType?: "alert" | "incident" | "report", subjectId?: string, signal?: AbortSignal) { const query = new URLSearchParams(); if (subjectType) query.set("subject_type", subjectType); if (subjectId) query.set("subject_id", subjectId); const suffix = query.toString(); return apiClient.request<{ items: EmailDraft[] }>(`/cases/${caseId}/email-drafts${suffix ? `?${suffix}` : ""}`, { signal }); },
+  emailDraft(draftId: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/email-drafts/${draftId}`, { signal }); },
+  updateEmailDraft(draftId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/email-drafts/${draftId}`, { method: "PATCH", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },
   approveEmail(draftId: string, approver: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/email-drafts/${draftId}/approve`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approver, confirmed: true }) }); },
   sendEmail(draftId: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/email-drafts/${draftId}/send`, { method: "POST", signal }); },
   audit(caseId: number, signal?: AbortSignal) { return apiClient.request<Page<AuditEvent>>(`/cases/${caseId}/audit?page=1&page_size=100`, { signal }); },

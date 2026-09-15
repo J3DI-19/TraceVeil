@@ -203,6 +203,49 @@ def _finding_anchor_time(
     return max(support_times) if support_times else None
 
 
+def _plural(count: int, singular: str, plural: str | None = None) -> str:
+    return f"{count} {singular if count == 1 else (plural or singular + 's')}"
+
+
+def _incident_summary(
+    *,
+    finding_count: int,
+    alert_count: int,
+    entity_count: int,
+    evidence_count: int,
+    maximum_risk: int,
+    severity: Severity | None,
+    started_at: datetime | None,
+    ended_at: datetime | None,
+) -> str:
+    """Builds the deterministic incident summary (Step 11).
+
+    Assembled only from values the deterministic engine already computed,
+    so the same events always yield the same sentence. No model output is
+    involved, and the sentence is produced before any AI narration.
+    """
+    parts = [
+        _plural(finding_count, "finding"),
+        _plural(alert_count, "alert"),
+        _plural(entity_count, "entity", "entities"),
+        _plural(evidence_count, "evidence record"),
+    ]
+    sentence = (
+        f"Highest severity {severity.value if severity else 'unknown'}; "
+        f"maximum risk {maximum_risk}/100 across " + ", ".join(parts) + "."
+    )
+    if started_at and ended_at:
+        window = (
+            f" Observed window {started_at.isoformat()} to {ended_at.isoformat()} UTC."
+            if started_at != ended_at
+            else f" Observed at {started_at.isoformat()} UTC."
+        )
+        sentence += window
+    else:
+        sentence += " No observed time is available for this incident."
+    return sentence[:1024]
+
+
 def _build_incident(
     *,
     case_id: int,
@@ -278,7 +321,28 @@ def _build_incident(
         )
         if entity is not None
     }
+    evidence_total = len(
+        {
+            evidence_id
+            for finding in findings
+            for evidence_id in finding.evidence_ids
+        }
+    )
+    incident_severity = max(
+        (finding.severity for finding in findings), key=severity_order.get
+    )
+    summary = _incident_summary(
+        finding_count=len(all_finding_ids),
+        alert_count=len(all_alert_ids),
+        entity_count=len(entities),
+        evidence_count=evidence_total,
+        maximum_risk=max(finding.risk.score for finding in findings),
+        severity=incident_severity,
+        started_at=min(observed) if observed else None,
+        ended_at=max(observed) if observed else None,
+    )
     return Incident(
+        summary=summary,
         incident_id=stable_uuid(
             "incident", case_id, *(str(event_id) for event_id in component_ids)
         ),

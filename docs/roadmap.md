@@ -1,6 +1,6 @@
 # Traceveil Roadmap
 
-> Current software status (12 September 2026): 145 of 176 roadmap items are complete (82.4%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, and grounded local-AI investigation chat are implemented. The 31 remaining items are confined to real-time browser delivery, reporting automation, and physical hardware acceptance.
+> Current software status (15 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state and explicit reconnect recovery, and approval-gated alert, notification and reporting automation are implemented end to end through the connected interface. The 11 remaining items are confined to physical hardware acceptance.
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
@@ -127,16 +127,55 @@ Derived artifacts are persisted and exposed through the Step 8 APIs; real-time
 browser delivery remains Step 7.
 
 ## 7. Real-Time Event Delivery
-- [ ] Add backend real-time event delivery
-- [ ] Select SSE or WebSocket transport based on implementation needs
-- [ ] Stream accepted live events to the frontend
-- [ ] Stream generated alerts to the frontend
-- [ ] Update device status in near real time
-- [ ] Update timelines when relevant live events arrive
-- [ ] Update dashboard metrics from validated backend data
-- [ ] Handle temporary frontend/backend disconnections
-- [ ] Add safe reconnect behaviour
-- [ ] Ensure real-time delivery does not alter forensic calculations
+- [x] Add backend real-time event delivery
+- [x] Select SSE or WebSocket transport based on implementation needs
+- [x] Stream accepted live events to the frontend
+- [x] Stream generated alerts to the frontend
+- [x] Update device status in near real time
+- [x] Update timelines when relevant live events arrive
+- [x] Update dashboard metrics from validated backend data
+- [x] Handle temporary frontend/backend disconnections
+- [x] Add safe reconnect behaviour
+- [x] Ensure real-time delivery does not alter forensic calculations
+
+**Current result:** Step 7 is complete. Persisted live results reach the browser
+over Server-Sent Events at `/api/v1/live/stream`, backed by a durable, bounded
+`stream_messages` log and filtered by case, session and topic. Six topics are
+published alongside an idle heartbeat; the new `timeline.updated` signal carries
+only a case id, analysis id and entry count, so the incident timeline and the
+dashboard metrics are always refetched from validated backend records rather
+than assembled in the browser. The client retries with exponential backoff and
+jitter, resumes with `Last-Event-ID`, stops on non-retryable responses, and
+suppresses duplicate stream ids; pausing the display never stops backend
+capture. Delivery is read-only by construction and asserted to be so: repeated
+reads, mid-stream replay, real HTTP streaming and a consumer polling during
+ingestion all leave evidence, canonical events, analysis runs and every analysis
+artifact byte-identical, with a post-stream recomputation resolving to the same
+content-addressed `analysis_id`. The SSE endpoint is exercised against a real
+uvicorn server rather than an in-process test client.
+
+Device status distinguishes three backend-authored states. `stale` is decided by
+the device's own session threshold rather than a global default, so sessions that
+declared different thresholds transition at different times; `offline` is decided
+by a reported link loss and is checked first, because a retained transport message
+carries a fresh timestamp and a recency test alone would render a disconnected
+sensor as Online. With nothing being reported, the SSE heartbeat drives a refetch,
+so the transition is a backend decision the browser only displays.
+
+Reconnect recovery is explicit. A `Last-Event-ID` older than the oldest retained
+message produces a versioned `stream.reset` frame carrying `cursor_expired`, the
+oldest retained id and a resume cursor, and the browser rebuilds devices, metrics,
+timeline, events and alerts from the authoritative APIs — so a retention gap is
+never silent. The SSE client is held for the life of a case and session with
+`paused` kept in a ref, so pausing the display never tears down the connection or
+resets the cursor, and therefore causes neither replay nor eventual duplicates.
+
+Live invalidation now reaches the case workspace as well as Live Monitor, through
+one shared hook. A pinned historical snapshot opens no stream and is never
+replaced; an open record drawer is offered a refresh rather than having the view
+swapped underneath it; and out-of-order responses cannot regress the displayed
+analysis. Physical-hardware acceptance of live delivery remains Step 12. See
+[the Step 7 verification](step-7-verification.md).
 
 ## 8. Dashboard Results and Investigation APIs
 - [x] Create APIs for cases
@@ -232,16 +271,51 @@ visuals to their originating response. Offline or invalid model output still
 completes with a clearly labelled deterministic explanation.
 
 ## 11. Alerts, Email, Reports and Automation
-- [ ] Add SMTP setup
-- [ ] Generate alert email drafts
-- [ ] Support drafts for live detected incidents
-- [ ] Require investigator approval before sending
-- [ ] Add report export
-- [ ] Auto-run analysis after batch upload
-- [ ] Automatically process validated incoming live events
-- [ ] Auto-group related alerts
-- [ ] Create deterministic incident summaries before AI narration
-- [ ] Preserve alert and notification audit history
+- [x] Add SMTP setup
+- [x] Generate alert email drafts
+- [x] Support drafts for live detected incidents
+- [x] Require investigator approval before sending
+- [x] Add report export
+- [x] Auto-run analysis after batch upload
+- [x] Automatically process validated incoming live events
+- [x] Auto-group related alerts
+- [x] Create deterministic incident summaries before AI narration
+- [x] Preserve alert and notification audit history
+
+**Current result:** Step 11 is complete. Every incident now carries a
+backend-authored `summary` assembled only from the deterministic engine's own
+severity, risk, counts and observed window, produced before any model is
+consulted and reproduced byte for byte on recomputation; the exported report
+renders those summaries above the AI narrative, which is labelled
+non-authoritative, and the connected incident table and drawer surface the
+summary rather than burying it among raw fields.
+
+Notification drafts are subject-agnostic: they may be raised against an approved
+report as before, or directly against a deterministic alert or incident with no
+report required and no PDF attached, which makes them usable while an
+investigation is still live. The backend writes the draft — only a recipient is
+required, and the initial subject and body are composed from the persisted
+artifact, reproducing an incident's deterministic summary verbatim and stating no
+value the artifact does not already carry, with a preview endpoint so an
+investigator reads the text before any record exists. Unknown and cross-case
+identifiers are refused. A shared panel in the alert and incident drawers carries
+the whole create, edit, approve and send path, and drafts are listable so one
+awaiting approval is reopened rather than duplicated after a refresh.
+
+The lifecycle is fully auditable: edits record which fields changed and whether an
+approval was revoked without republishing the message, refused sends record a
+bounded reason code, and a terminal delivery outcome is mirrored onto the alert's
+`notification_status` in the same transaction, so the alert list and the audit
+trail cannot disagree. An incident notification deliberately leaves individual
+alerts alone rather than overstating what was sent. The `email_drafts` migration
+that relaxes `report_id` rebuilds the table inside one transaction with foreign
+keys verified before commit and restored in a `finally` path, and is covered by
+dedicated legacy-database regression tests including a forced mid-rebuild failure.
+
+The completion run passed the full backend suite (222 tests, including 28 Step 11
+tests and 8 migration tests) with a clean process exit and no leaked worker
+threads, the OpenAPI contract check, all 108 frontend tests, the TypeScript
+type-check, and the production build. See `docs/step-11-verification.md`.
 
 ## 12. Physical Live Demonstration
 - [ ] Assemble the Arduino and IoT laboratory setup
