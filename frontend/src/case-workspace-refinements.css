@@ -19,3 +19,26 @@
 @media(max-width:980px){.findings-review-layout,.workspace-results{grid-template-columns:1fr}.selected-finding-detail,.record-detail-panel{position:static}.timeline-hero-layout{grid-template-columns:1fr}.timeline-hero-layout>aside .panel{position:static}.case-capture-status{grid-template-columns:1fr}.case-context-meta{overflow:auto}.case-overview-refined{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.case-status-summary{width:100%}.case-status-summary>div{min-width:96px;padding:9px}.case-overview-refined{grid-template-columns:1fr}.case-overview-refined .span-2{grid-column:span 1}.incident-assessment .snapshot{grid-template-columns:1fr}.assessment-confidence{border-right:0;border-bottom:1px solid var(--border);padding-bottom:13px}.ai-brief-panel .ai-summary{display:flex;align-items:flex-start}.findings-master-list>button{grid-template-columns:18px minmax(0,1fr) auto}.findings-master-list>button>.risk-badge{display:none}.finding-detail-meta{grid-template-columns:1fr 1fr}.finding-detail-meta>div:last-child{grid-column:span 2;border-left:0;border-top:1px solid var(--border)}.timeline-composition-strip{justify-content:flex-start;overflow:auto;padding:0 10px}.timeline-composition-strip span{white-space:nowrap}.case-capture-counters{grid-template-columns:1fr 1fr}.case-capture-counters>div:nth-child(3){border-top:1px solid #19384b;border-left:0}.case-capture-counters>div:nth-child(4){border-top:1px solid #19384b}.case-context-meta>div{min-width:120px}.case-continuity:before{margin-bottom:4px}.case-tabs{scrollbar-width:thin}}
 .workspace-notice{display:flex;align-items:center;gap:11px;border:1px solid #1b3d54;background:linear-gradient(100deg,#091925,#0a111b);border-radius:8px;padding:12px 14px;margin-bottom:12px}.workspace-notice>span{width:26px;height:26px;flex:none;display:grid;place-items:center;border:1px solid #24536b;background:#0d2633;color:#60c8e7;border-radius:50%;font-family:"DM Mono"}.workspace-notice>div{display:flex;flex-direction:column;gap:3px}.workspace-notice b{font-size:9px}.workspace-notice p{font-size:8px;line-height:1.55;color:#74859a}
+
+/* Step 11 - deterministic incident summary and artifact notification drafts.
+   The summary is backend-authored and computed before any AI narration, so
+   it is styled as authoritative content rather than as a secondary note. */
+.incident-deterministic-summary { margin: 0.35rem 0 0.15rem; padding: 0.55rem 0.7rem; border-left: 3px solid #55c0e3; border-radius: 0 0.3rem 0.3rem 0; background: #0d1d2e; color: #cfe0ef; font-size: 0.74rem; line-height: 1.5; }
+.incident-deterministic-summary b { color: #7fd3ef; font-size: 0.6rem; letter-spacing: 0.07em; text-transform: uppercase; }
+
+.artifact-notification { display: grid; gap: 0.6rem; padding: 1rem; border-top: 1px solid #1d2d42; background: #09121e; }
+.artifact-notification header span { color: #55c0e3; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.artifact-notification h3 { margin: 0.2rem 0 0; color: #dce8f4; font-size: 0.9rem; }
+.artifact-notification > p { margin: 0; color: #8aa2b8; font-size: 0.72rem; line-height: 1.55; }
+.artifact-notification .link-button.active { color: #7fd3ef; text-decoration: underline; }
+.notification-controls { display: grid; gap: 0.6rem; }
+.notification-field { display: grid; gap: 0.25rem; }
+.notification-field > span { color: #72879e; font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.notification-body { min-height: 11rem; font: 0.72rem/1.55 "DM Mono", monospace; resize: vertical; }
+.notification-preview { max-height: 18rem; overflow: auto; margin: 0.5rem 0 0; padding: 0.7rem; border: 1px solid #1d3046; border-radius: 0.35rem; background: #0b1624; color: #b9cddd; font: 0.7rem/1.5 "DM Mono", monospace; white-space: pre-wrap; }
+.notification-hint { margin: 0; color: #d9a441; font-size: 0.68rem; }
+
+/* Step 7 - live invalidation reaching the case workspace. The banner is an
+   offer, not an automatic replacement, so an open record is never yanked. */
+.live-update-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.6rem 0; padding: 0.6rem 0.8rem; border: 1px solid #2a5570; border-radius: 0.4rem; background: #0d2131; color: #cfe4f2; font-size: 0.74rem; }
+.live-update-banner > span { flex: 1 1 18rem; }
