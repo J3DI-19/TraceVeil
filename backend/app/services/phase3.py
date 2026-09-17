@@ -165,12 +165,25 @@ class Phase3Service:
                     # Accepted canonical evidence remains durable; analysis can be explicitly rerun.
                     self.audit(case_id, "live.analysis_failed", "live_session", session_id)
 
+    def _audit_locked(self, case_id: int | None, action: str, subject_type: str, subject_id: str | None, *, actor: str = "Investigator", request_id: str | None = None, details: dict | None = None) -> None:
+        """Write one audit row inside the caller's transaction.
+
+        `audit` below opens its own transaction, which is right for a
+        standalone record but wrong when the audit row must land or fail
+        together with the rows it describes. A caller that already holds
+        `repository.write_lock` and an open `self.db` transaction uses
+        this instead, so the audit history cannot commit separately from
+        the state it is the history of.
+        """
+        self.db.execute(
+            "INSERT INTO audit_events VALUES(?,?,?,?,?,?,?,?,?)",
+            (str(uuid4()), case_id, action, subject_type, subject_id, actor, request_id, canonical_json(details or {}), utcnow()),
+        )
+
     def audit(self, case_id: int | None, action: str, subject_type: str, subject_id: str | None, *, actor: str = "Investigator", request_id: str | None = None, details: dict | None = None) -> None:
         with self.repository.write_lock, self.db:
-            self.db.execute(
-                "INSERT INTO audit_events VALUES(?,?,?,?,?,?,?,?,?)",
-                (str(uuid4()), case_id, action, subject_type, subject_id, actor, request_id, canonical_json(details or {}), utcnow()),
-            )
+            self._audit_locked(case_id, action, subject_type, subject_id,
+                               actor=actor, request_id=request_id, details=details)
 
     # Live collection
     def start_live_session(self, case_id: int, label: str, source_ids: list[str], stale_after_seconds: int, request_id: str | None) -> dict:
@@ -512,19 +525,101 @@ class Phase3Service:
                     inserted = False
             if inserted:
                 self.emit(case_id, session_id, "alert.created", json.loads(alert["payload_json"]))
+        # Step 7: announce that a fresh deterministic timeline exists for
+        # this case. The payload deliberately carries only backend-authored
+        # identifiers and a count - never timeline entries themselves - so a
+        # browser cannot render a client-side chronology and must refetch
+        # the validated values from the investigation API.
+        timeline_entries = self.db.execute(
+            "SELECT COUNT(*) FROM analysis_artifacts WHERE analysis_id=? AND kind='timeline'",
+            (latest[0],),
+        ).fetchone()[0]
+        self.emit(case_id, session_id, "timeline.updated", {"case_id": case_id, "analysis_id": latest[0], "entry_count": timeline_entries})
         summary = self.batch.get_case(case_id)
         self.emit(case_id, session_id, "metrics.updated", {"case_id": case_id, "updated_at": summary.get("updated_at"), "accepted_events": self.db.execute("SELECT COUNT(*) FROM canonical_events WHERE case_id=? AND origin='live'", (case_id,)).fetchone()[0]})
 
-    def device_state(self, session_id: str, device_id: str) -> dict:
+    # --- Device connection state ------------------------------------------
+    # A silent sensor and a disconnected one are different facts, and an
+    # investigator watching a live demonstration must not read either as
+    # "Online". Three states are published, all backend-authored:
+    #
+    #   online  - seen within this session's own staleness threshold
+    #   stale   - nothing accepted from it for longer than that threshold
+    #   offline - the device (or its transport) last reported that its link
+    #             was down, regardless of how recent that report was
+    #
+    # The offline check comes first on purpose: a retained MQTT "link
+    # offline" message carries a fresh timestamp, so a recency test alone
+    # would render a disconnected device as Online.
+    LINK_STATUS_FIELDS = ("link_status", "link", "connection", "connection_status", "status")
+    LINK_OFFLINE_VALUES = {"offline", "disconnected", "lost", "down", "unreachable"}
+
+    @staticmethod
+    def _decode_metrics(raw: object) -> dict:
+        """Read a stored metrics blob without trusting its shape.
+
+        `device_states.latest_metrics_json` is declared NOT NULL and the
+        ingest path always writes a JSON object, but the device register
+        is also written by transport bridges. One malformed or absent
+        blob must degrade to an empty reading rather than fault the whole
+        device listing: an investigator losing every device's status
+        because one row is unreadable is a far worse outcome than that
+        row showing no metrics.
+        """
+        if isinstance(raw, dict):
+            return raw
+        if not isinstance(raw, (str, bytes, bytearray)) or not str(raw).strip():
+            return {}
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+
+    def _link_is_offline(self, metrics: dict) -> bool:
+        for field in self.LINK_STATUS_FIELDS:
+            value = metrics.get(field)
+            if isinstance(value, str) and value.strip().lower() in self.LINK_OFFLINE_VALUES:
+                return True
+        return False
+
+    def _session_stale_seconds(self, session_id: str) -> int:
+        """The session's declared threshold is authoritative.
+
+        Falling back to the global default would report the same transition
+        time for two sessions that deliberately declared different ones.
+        """
+        row = self.db.execute(
+            "SELECT stale_after_seconds FROM live_sessions WHERE session_id=?", (session_id,)).fetchone()
+        return int(row["stale_after_seconds"]) if row and row["stale_after_seconds"] else int(self.settings.live_device_stale_seconds)
+
+    def device_state(self, session_id: str, device_id: str, stale_after_seconds: int | None = None) -> dict:
         row = self.db.execute("SELECT * FROM device_states WHERE session_id=? AND device_id=?", (session_id, device_id)).fetchone()
         result = dict(row)
-        result["latest_metrics"] = json.loads(result.pop("latest_metrics_json"))
-        result["stale"] = datetime.fromisoformat(result["last_seen_at"]) < datetime.now(timezone.utc) - timedelta(seconds=self.settings.live_device_stale_seconds)
+        metrics = self._decode_metrics(result.pop("latest_metrics_json", None))
+        result["latest_metrics"] = metrics
+        threshold = stale_after_seconds if stale_after_seconds is not None else self._session_stale_seconds(session_id)
+        result["stale_after_seconds"] = threshold
+        overdue = datetime.fromisoformat(result["last_seen_at"]) < datetime.now(timezone.utc) - timedelta(seconds=threshold)
+        if self._link_is_offline(metrics):
+            result["connection_state"] = "offline"
+        elif overdue:
+            result["connection_state"] = "stale"
+        else:
+            result["connection_state"] = "online"
+        # `stale` is retained for existing consumers. Offline counts as not
+        # currently reporting, so it stays true there too.
+        result["stale"] = result["connection_state"] != "online"
         return result
 
     def list_devices(self, case_id: int, session_id: str | None = None) -> list[dict]:
         rows = self.db.execute("SELECT * FROM device_states WHERE case_id=? AND (? IS NULL OR session_id=?) ORDER BY last_seen_at DESC,device_id", (case_id, session_id, session_id)).fetchall()
-        return [self.device_state(row["session_id"], row["device_id"]) for row in rows]
+        # Thresholds are resolved once per session rather than once per
+        # device, so a wide session does not re-query for every row.
+        thresholds = {identifier: self._session_stale_seconds(identifier)
+                      for identifier in {row["session_id"] for row in rows}}
+        return [self.device_state(row["session_id"], row["device_id"], thresholds[row["session_id"]])
+                for row in rows]
 
     def emit(self, case_id: int, session_id: str | None, topic: str, payload: dict) -> int:
         now = utcnow()
@@ -534,6 +629,82 @@ class Phase3Service:
             self.db.execute("DELETE FROM stream_messages WHERE occurred_at<?", (cutoff,))
             self.db.execute("DELETE FROM stream_messages WHERE stream_id NOT IN (SELECT stream_id FROM stream_messages ORDER BY stream_id DESC LIMIT ?)", (self.settings.live_stream_retention,))
         return int(cursor.lastrowid)
+
+    def stream_gap(self, last_id: int | None, case_id: int | None, session_id: str | None) -> dict | None:
+        """Decides whether a resumption cursor can be honoured.
+
+        Returns None when the cursor is still inside the retained window
+        (including a fresh connection, which starts at 0 and is not a gap).
+        Otherwise returns a bounded description of why it cannot be, under
+        one of three codes - `cursor_expired` (retention passed it),
+        `cursor_ahead` (it names ids the server never issued) and
+        `cursor_invalid` (it could not be parsed) - each carrying the same
+        instruction: refetch these resources, resume from this cursor.
+
+        This is the difference between a feed that is merely incomplete
+        and one that is knowably incomplete. Without it, a browser that
+        reconnects after a long disconnect receives later messages and has
+        no way to tell that anything is missing.
+        """
+        if last_id is None:
+            # A malformed `Last-Event-ID` is not a fresh connection: the
+            # client believes it has history. Treating it as 0 would
+            # silently replay, so it is refused like any other cursor the
+            # server cannot honour.
+            return {"schema_version": "1.0", "reason": "cursor_invalid",
+                    "requested_from": None, "earliest_retained": None,
+                    "resume_from": 0,
+                    "resynchronize": list(self.RESYNCHRONIZE_RESOURCES)}
+        if last_id <= 0:
+            return None
+        # `stream_id` is one global sequence and retention prunes it
+        # globally, so the retained window is a global fact - not a
+        # per-case one. Comparing against a case-scoped minimum would call
+        # a client stale merely because its case had been quiet, so the
+        # global low-water mark is what decides.
+        #
+        # This is deliberately conservative: pruning that removed only
+        # other cases' messages still reports a gap here. The cost is one
+        # unnecessary refetch of authoritative state; the alternative is
+        # occasionally missing a real gap, which is not an acceptable
+        # trade for an evidence feed.
+        row = self.db.execute(
+            "SELECT MIN(stream_id) AS earliest, MAX(stream_id) AS latest FROM stream_messages").fetchone()
+        earliest, latest = row["earliest"], row["latest"]
+        if earliest is None:
+            # The log holds nothing at all, yet this client carries a
+            # cursor, so whatever it was pointing at has been pruned.
+            return {"schema_version": "1.0", "reason": "cursor_expired",
+                    "requested_from": last_id, "earliest_retained": None,
+                    "resume_from": 0,
+                    "resynchronize": list(self.RESYNCHRONIZE_RESOURCES)}
+        # A cursor beyond the newest retained id cannot be honoured either:
+        # it names messages the server has never issued, which happens when
+        # a client resumes against a rebuilt or rolled-back log. Resuming
+        # would leave the stream silent indefinitely, because no future id
+        # ever reaches that cursor, so the same reset instruction is sent
+        # with its own diagnostic code.
+        if latest is not None and last_id > latest:
+            return {"schema_version": "1.0", "reason": "cursor_ahead",
+                    "requested_from": last_id, "earliest_retained": earliest,
+                    "latest_retained": latest, "resume_from": latest,
+                    "resynchronize": list(self.RESYNCHRONIZE_RESOURCES)}
+        # The client resumes *after* last_id, so it is still complete when
+        # last_id + 1 is retained - that is, when last_id >= earliest - 1.
+        if last_id >= earliest - 1:
+            return None
+        return {"schema_version": "1.0", "reason": "cursor_expired",
+                "requested_from": last_id, "earliest_retained": earliest,
+                "latest_retained": latest,
+                # Resume from just before the oldest retained message so no
+                # retained message is skipped by the recovery itself.
+                "resume_from": earliest - 1,
+                "resynchronize": list(self.RESYNCHRONIZE_RESOURCES)}
+
+    # What a client must refetch to close a retention gap. Every one is an
+    # authoritative backend query, so recovery restores true state rather
+    # than patching the display buffers.
+    RESYNCHRONIZE_RESOURCES = ("devices", "metrics", "timeline", "events", "alerts")
 
     def stream_after(self, last_id: int, case_id: int | None, session_id: str | None, topics: list[str], limit: int = 256) -> list[dict]:
         where = ["stream_id>?"]; values: list[Any] = [last_id]
@@ -1047,6 +1218,15 @@ class Phase3Service:
             canvas.setFont("Helvetica-Bold" if size >= 14 else "Helvetica", size); canvas.drawString(54, y, safe); y -= gap
         line("TRACEVEIL INVESTIGATION REPORT", 16, 24); line(report["title"], 14, 22)
         line(f"Case: {case['name']} (CASE-{case['id']:04d})"); line(f"Generated UTC: {report['created_at']}"); line("Deterministic forensic results remain backend-authored."); y -= 8
+        # Step 11: the deterministic incident summaries are rendered BEFORE
+        # any AI narration, so the authoritative account is what a reader
+        # meets first and the narrative can only ever annotate it.
+        incidents = artifacts.get("incident", [])
+        if incidents:
+            line("DETERMINISTIC INCIDENT SUMMARIES", 12, 18)
+            for item in incidents[:100]:
+                identifier = item.get("incident_id") or "incident"
+                line(f"{identifier} | {item.get('summary') or 'No deterministic summary available.'}")
         if report.get("narrative"):
             line("AI NARRATIVE (NON-AUTHORITATIVE)", 12, 18); line(report["narrative"])
         line("EVIDENCE REGISTER", 12, 18)
@@ -1072,14 +1252,179 @@ class Phase3Service:
         self.audit(report["case_id"], "report.approved", "report", report_id, actor=approver, details={"content_hash": report["content_hash"]})
         return self.get_report(report_id)
 
+    # --- Step 11: subject-agnostic notification drafts --------------------
+    # A draft may notify about an approved report, or directly about a
+    # deterministic alert or incident. Approval, content hashing and the
+    # recipient allow-list apply identically to all three; only the
+    # "approved report" precondition and the PDF attachment are specific
+    # to report-bound drafts.
+    ARTIFACT_SUBJECTS = {"alert", "incident"}
+
+    def _analysis_artifact(self, case_id: int, kind: str, item_id: str) -> dict:
+        row = self.db.execute(
+            "SELECT payload_json FROM analysis_artifacts WHERE analysis_id="
+            "(SELECT analysis_id FROM analysis_runs WHERE case_id=? ORDER BY created_at DESC LIMIT 1)"
+            " AND kind=? AND item_id=?", (case_id, kind, item_id)).fetchone()
+        if not row:
+            raise KeyError(f"{kind}_not_found")
+        return json.loads(row["payload_json"])
+
+    def _draft_anchor(self, draft: dict) -> dict:
+        """Resolves what a draft is pinned to.
+
+        The anchor hash is what makes approval meaningful: if the report is
+        regenerated, or the deterministic alert/incident changes under
+        re-analysis, the hash moves and the draft must be re-approved
+        before it can be sent.
+        """
+        subject_type = draft["subject_type"] or "report"
+        if subject_type == "report":
+            report = self.get_report(draft["report_id"])
+            return {"subject_type": "report", "case_id": report["case_id"],
+                    "hash": report["content_hash"], "report": report}
+        payload = self._analysis_artifact(draft["case_id"], subject_type, draft["subject_id"])
+        return {"subject_type": subject_type, "case_id": draft["case_id"],
+                "hash": digest(canonical_json(payload)), "report": None}
+
+    def _draft_hash(self, recipient: str, subject: str, body: str, anchor: dict) -> str:
+        # Report drafts keep their original hash key so drafts created
+        # before Step 11 remain valid.
+        key = "report_hash" if anchor["subject_type"] == "report" else "subject_hash"
+        return digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, key: anchor["hash"]}))
+
+    def _insert_draft(self, *, draft_id: str, report_id: str | None, case_id: int,
+                      subject_type: str, subject_id: str, recipient: str, subject: str,
+                      body: str, content_hash: str, now: str) -> None:
+        with self.repository.write_lock, self.db:
+            self.db.execute(
+                "INSERT INTO email_drafts (draft_id, report_id, recipient, subject, body,"
+                " content_hash, status, approved_by, approved_at, sent_at, smtp_message_id,"
+                " delivery_error, created_at, updated_at, subject_type, subject_id, case_id)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (draft_id, report_id, recipient, subject, body, content_hash, "draft",
+                 None, None, None, None, None, now, now, subject_type, subject_id, case_id))
+
     def create_email_draft(self, report_id: str, recipient: str, subject: str, body: str) -> dict:
         report = self.get_report(report_id)
         if report["status"] != "approved":
             raise ValueError("approved_report_required")
-        draft_id, now = str(uuid4()), utcnow(); content_hash = digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, "report_hash": report["content_hash"]}))
-        with self.repository.write_lock, self.db:
-            self.db.execute("INSERT INTO email_drafts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (draft_id, report_id, recipient, subject, body, content_hash, "draft", None, None, None, None, None, now, now))
-        self.audit(report["case_id"], "email_draft.created", "email_draft", draft_id)
+        draft_id, now = str(uuid4()), utcnow()
+        anchor = {"subject_type": "report", "hash": report["content_hash"]}
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
+        self._insert_draft(draft_id=draft_id, report_id=report_id, case_id=report["case_id"],
+                           subject_type="report", subject_id=report_id, recipient=recipient,
+                           subject=subject, body=body, content_hash=content_hash, now=now)
+        self.audit(report["case_id"], "email_draft.created", "email_draft", draft_id,
+                   details={"subject_type": "report", "subject_id": report_id})
+        return self.get_email_draft(draft_id)
+
+    # --- Grounded draft content -------------------------------------------
+    # The initial subject and body of an artifact notification are composed
+    # by the backend from the persisted artifact, never by the caller and
+    # never by a model. Every value below is copied out of the artifact or
+    # the case record, so the draft cannot state anything the deterministic
+    # engine did not already conclude. The investigator may then edit it -
+    # which revokes any approval - before approving and sending.
+    NOTIFICATION_REVIEW_NOTICE = (
+        "Review these deterministic details before approving. Traceveil never "
+        "sends a notification without explicit investigator approval.")
+
+    @staticmethod
+    def _identifier_line(label: str, identifiers: list[str], limit: int = 10) -> str:
+        """Bounded identifier list, so a wide artifact cannot produce an
+        unbounded message body."""
+        shown = identifiers[:limit]
+        overflow = len(identifiers) - len(shown)
+        return f"{label}: " + ", ".join(shown) + (f" (+{overflow} more)" if overflow else "")
+
+    def _alert_draft_content(self, case: dict, payload: dict) -> tuple[str, str]:
+        rule_id = str(payload.get("rule_id") or "unknown rule")
+        severity = str(payload.get("severity") or "unknown")
+        evidence_ids = [str(item) for item in payload.get("evidence_ids") or []]
+        subject = f"[Traceveil] {severity.upper()} alert {rule_id} - {case['name']}"
+        lines = [
+            f"A deterministic rule raised an alert in case {case['name']} (CASE-{case['id']:04d}).",
+            "",
+            f"Alert: {payload.get('alert_id')}",
+            f"Rule: {rule_id}",
+            f"Title: {payload.get('title') or 'Deterministic alert'}",
+            f"Severity: {severity}",
+            f"Risk score: {payload.get('risk_score')}/100",
+            f"Triggered at: {payload.get('triggered_at')} UTC",
+            f"Finding: {payload.get('finding_id')}",
+            f"Supporting evidence records: {len(evidence_ids)}",
+        ]
+        if evidence_ids:
+            lines.append(self._identifier_line("Evidence identifiers", evidence_ids))
+        lines += ["", self.NOTIFICATION_REVIEW_NOTICE]
+        return subject, "\n".join(lines)
+
+    def _incident_draft_content(self, case: dict, payload: dict) -> tuple[str, str]:
+        severity = str(payload.get("severity") or "unknown")
+        entity_ids = [str(item) for item in payload.get("entity_ids") or []]
+        subject = f"[Traceveil] {severity.upper()} incident - {case['name']}"
+        lines = [
+            f"A correlated incident was grouped in case {case['name']} (CASE-{case['id']:04d}).",
+            "",
+            f"Incident: {payload.get('incident_id')}",
+            # The deterministic summary is the authoritative one-line
+            # account; it is reproduced verbatim, never paraphrased.
+            f"Summary: {payload.get('summary') or 'No deterministic summary available.'}",
+            f"Highest severity: {severity}",
+            f"Maximum risk: {payload.get('maximum_risk')}/100",
+            f"Observed window: {payload.get('started_at')} to {payload.get('ended_at')} UTC",
+            f"Findings: {payload.get('finding_count')}",
+            f"Alerts: {payload.get('alert_count')}",
+            f"Entities: {payload.get('entity_count')}",
+            f"Evidence records: {payload.get('evidence_count')}",
+        ]
+        if entity_ids:
+            lines.append(self._identifier_line("Entity identifiers", entity_ids))
+        lines += ["", self.NOTIFICATION_REVIEW_NOTICE]
+        return subject, "\n".join(lines)
+
+    def _compose(self, case: dict, subject_type: str, payload: dict) -> tuple[str, str]:
+        return (self._alert_draft_content(case, payload) if subject_type == "alert"
+                else self._incident_draft_content(case, payload))
+
+    def compose_artifact_draft(self, case_id: int, subject_type: str, subject_id: str) -> dict:
+        """Returns the backend-authored subject and body for an artifact
+        without creating a draft, so the UI can preview the grounded text."""
+        if subject_type not in self.ARTIFACT_SUBJECTS:
+            raise ValueError("unsupported_draft_subject")
+        case = self.batch.get_case(case_id)
+        payload = self._analysis_artifact(case_id, subject_type, subject_id)
+        subject, body = self._compose(case, subject_type, payload)
+        return {"subject_type": subject_type, "subject_id": subject_id,
+                "subject": subject, "body": body}
+
+    def create_artifact_email_draft(self, case_id: int, subject_type: str, subject_id: str,
+                                    recipient: str, subject: str | None = None,
+                                    body: str | None = None) -> dict:
+        """Creates a notification draft for a deterministic alert or live
+        incident, with no report required.
+
+        `subject` and `body` are optional: when omitted the backend
+        composes them from the persisted artifact, so an investigator who
+        supplies only a recipient still gets a draft whose text is
+        grounded in the artifact it is anchored to.
+        """
+        if subject_type not in self.ARTIFACT_SUBJECTS:
+            raise ValueError("unsupported_draft_subject")
+        case = self.batch.get_case(case_id)
+        payload = self._analysis_artifact(case_id, subject_type, subject_id)
+        if subject is None or body is None:
+            composed_subject, composed_body = self._compose(case, subject_type, payload)
+            subject = composed_subject if subject is None else subject
+            body = composed_body if body is None else body
+        draft_id, now = str(uuid4()), utcnow()
+        anchor = {"subject_type": subject_type, "hash": digest(canonical_json(payload))}
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
+        self._insert_draft(draft_id=draft_id, report_id=None, case_id=case_id,
+                           subject_type=subject_type, subject_id=subject_id, recipient=recipient,
+                           subject=subject, body=body, content_hash=content_hash, now=now)
+        self.audit(case_id, "email_draft.created", "email_draft", draft_id,
+                   details={"subject_type": subject_type, "subject_id": subject_id})
         return self.get_email_draft(draft_id)
 
     def get_email_draft(self, draft_id: str) -> dict:
@@ -1088,51 +1433,155 @@ class Phase3Service:
             raise KeyError("email_draft_not_found")
         return dict(row)
 
+    def list_email_drafts(self, case_id: int, subject_type: str | None = None,
+                          subject_id: str | None = None) -> dict:
+        """Lists a case's notification drafts, newest first.
+
+        Without this a draft is unreachable after a refresh, and an
+        investigator would create a second draft for the same artifact
+        rather than reopening the one already awaiting approval.
+        """
+        self.batch.get_case(case_id)
+        clauses, parameters = ["case_id=?"], [case_id]
+        if subject_type:
+            clauses.append("subject_type=?"); parameters.append(subject_type)
+        if subject_id:
+            clauses.append("subject_id=?"); parameters.append(subject_id)
+        rows = self.db.execute(
+            f"SELECT * FROM email_drafts WHERE {' AND '.join(clauses)}"
+            " ORDER BY created_at DESC, draft_id LIMIT 200", tuple(parameters)).fetchall()
+        return {"items": [dict(row) for row in rows]}
+
+    # --- Lifecycle audit ---------------------------------------------------
+    # Every decision that changes, blocks or completes a notification is
+    # recorded. Details carry identifiers, hashes and bounded reason codes
+    # only: never a recipient's message, an attachment, or an SMTP
+    # credential, because the audit trail is read by more people than the
+    # investigation itself.
+    REJECTION_REASONS = {
+        "approved_email_required", "email_content_changed", "approved_report_required",
+        "smtp_not_configured", "recipient_domain_not_allowed", "sent_email_immutable",
+        "artifact_not_found", "unsupported_draft_subject",
+    }
+
+    def _audit_rejection(self, case_id: int | None, draft: dict, reason: str,
+                         request_id: str | None = None) -> None:
+        """Records a refused send so a blocked delivery is reconstructible.
+
+        Silent refusals are the failure mode that matters here: without
+        this, an investigator who believes a notification went out has no
+        record saying why it did not.
+        """
+        self.audit(case_id, "email.rejected", "email_draft", draft["draft_id"],
+                   request_id=request_id,
+                   details={"reason": reason if reason in self.REJECTION_REASONS else "rejected",
+                            "subject_type": draft["subject_type"] or "report",
+                            "subject_id": draft["subject_id"] or "",
+                            "content_hash": draft["content_hash"]})
+
+    def _reject(self, case_id: int | None, draft: dict, reason: str,
+                request_id: str | None = None) -> ValueError:
+        self._audit_rejection(case_id, draft, reason, request_id)
+        return ValueError(reason)
+
+    def _sync_alert_notification(self, case_id: int, draft: dict, status: str,
+                                 error: str | None, now: str) -> list[str]:
+        """Mirrors a terminal delivery outcome onto the alerts it concerns.
+
+        Without this the alert list keeps reporting `not_requested` after a
+        notification has actually gone out, so the operational view and the
+        audit trail disagree about the same event.
+
+        Only an alert-bound draft updates an alert. An incident draft
+        concerns a group, and quietly marking every alert in that group as
+        individually notified would overstate what was sent, so incident
+        notifications deliberately leave alert rows alone.
+        """
+        if (draft["subject_type"] or "report") != "alert" or not draft["subject_id"]:
+            return []
+        notification = "delivered" if status == "sent" else "delivery_failed"
+        # Bounded: the stored error is a short reason, never an SMTP transcript.
+        notification_error = None if notification == "delivered" else (error or "")[:200]
+        self.db.execute(
+            "INSERT INTO alert_workflow(case_id,alert_id,status,actor,notification_status,"
+            "notification_error,updated_at) VALUES(?,?,?,?,?,?,?)"
+            " ON CONFLICT(case_id,alert_id) DO UPDATE SET"
+            " notification_status=excluded.notification_status,"
+            " notification_error=excluded.notification_error,"
+            " updated_at=excluded.updated_at",
+            (case_id, draft["subject_id"], "pending", "Investigator",
+             notification, notification_error, now))
+        return [draft["subject_id"]]
+
     def update_email_draft(self, draft_id: str, recipient: str, subject: str, body: str) -> dict:
         draft = self.get_email_draft(draft_id)
+        anchor_case = draft["case_id"]
         if draft["sent_at"]:
-            raise ValueError("sent_email_immutable")
-        report = self.get_report(draft["report_id"]); content_hash = digest(canonical_json({"recipient": recipient.lower(), "subject": subject, "body": body, "report_hash": report["content_hash"]}))
+            raise self._reject(anchor_case, draft, "sent_email_immutable")
+        anchor = self._draft_anchor(draft)
+        content_hash = self._draft_hash(recipient, subject, body, anchor)
+        changed = [name for name, value in
+                   (("recipient", recipient), ("subject", subject), ("body", body))
+                   if draft[name] != value]
         with self.repository.write_lock, self.db:
             self.db.execute("UPDATE email_drafts SET recipient=?,subject=?,body=?,content_hash=?,status='draft',approved_by=NULL,approved_at=NULL,updated_at=? WHERE draft_id=?", (recipient, subject, body, content_hash, utcnow(), draft_id))
+        # The field names are recorded, never the new values: an edit must
+        # be reconstructible without republishing the message contents.
+        self.audit(anchor["case_id"], "email_draft.updated", "email_draft", draft_id,
+                   details={"changed_fields": changed,
+                            "previous_content_hash": draft["content_hash"],
+                            "content_hash": content_hash,
+                            "approval_revoked": bool(draft["approved_at"]),
+                            "subject_type": anchor["subject_type"]})
         return self.get_email_draft(draft_id)
 
     def approve_email(self, draft_id: str, approver: str) -> dict:
         draft = self.get_email_draft(draft_id)
         if draft["sent_at"]:
-            raise ValueError("sent_email_immutable")
-        report = self.get_report(draft["report_id"])
-        if report["status"] != "approved":
-            raise ValueError("approved_report_required")
-        expected_hash = digest(canonical_json({"recipient": draft["recipient"].lower(), "subject": draft["subject"], "body": draft["body"], "report_hash": report["content_hash"]}))
+            raise self._reject(draft["case_id"], draft, "sent_email_immutable")
+        anchor = self._draft_anchor(draft)
+        if anchor["subject_type"] == "report" and anchor["report"]["status"] != "approved":
+            raise self._reject(anchor["case_id"], draft, "approved_report_required")
+        expected_hash = self._draft_hash(draft["recipient"], draft["subject"], draft["body"], anchor)
         if expected_hash != draft["content_hash"]:
-            raise ValueError("email_content_changed")
+            raise self._reject(anchor["case_id"], draft, "email_content_changed")
         now = utcnow()
         with self.repository.write_lock, self.db:
             self.db.execute("UPDATE email_drafts SET status='approved',approved_by=?,approved_at=?,updated_at=? WHERE draft_id=?", (approver, now, now, draft_id))
             self.db.execute("INSERT INTO approval_records VALUES(?,?,?,?,?,?)", (str(uuid4()), "email_draft", draft_id, draft["content_hash"], approver, now))
-        self.audit(report["case_id"], "email_draft.approved", "email_draft", draft_id, actor=approver, details={"content_hash": draft["content_hash"]})
+        self.audit(anchor["case_id"], "email_draft.approved", "email_draft", draft_id, actor=approver, details={"content_hash": draft["content_hash"], "subject_type": anchor["subject_type"]})
         return self.get_email_draft(draft_id)
 
     def send_email(self, draft_id: str, request_id: str | None) -> dict:
-        draft = self.get_email_draft(draft_id); report = self.get_report(draft["report_id"])
+        draft = self.get_email_draft(draft_id)
         if draft["sent_at"]:
             return draft
         if draft["status"] != "approved" or not draft["approved_at"]:
-            raise ValueError("approved_email_required")
-        if report["status"] != "approved":
-            raise ValueError("approved_report_required")
-        expected_hash = digest(canonical_json({"recipient": draft["recipient"].lower(), "subject": draft["subject"], "body": draft["body"], "report_hash": report["content_hash"]}))
+            raise self._reject(draft["case_id"], draft, "approved_email_required", request_id)
+        # A missing artifact is itself a refusal worth recording: it means
+        # re-analysis removed the alert or incident this draft speaks for.
+        try:
+            anchor = self._draft_anchor(draft)
+        except KeyError:
+            self._audit_rejection(draft["case_id"], draft, "artifact_not_found", request_id)
+            raise
+        report = anchor["report"]
+        if anchor["subject_type"] == "report" and report["status"] != "approved":
+            raise self._reject(anchor["case_id"], draft, "approved_report_required", request_id)
+        expected_hash = self._draft_hash(draft["recipient"], draft["subject"], draft["body"], anchor)
         if expected_hash != draft["content_hash"]:
-            raise ValueError("email_content_changed")
+            raise self._reject(anchor["case_id"], draft, "email_content_changed", request_id)
         if not self.settings.smtp_host or not self.settings.smtp_from_address:
-            raise ValueError("smtp_not_configured")
+            raise self._reject(anchor["case_id"], draft, "smtp_not_configured", request_id)
         domain = draft["recipient"].rsplit("@", 1)[-1].lower()
         if domain not in self.settings.smtp_allowed_recipient_domains:
-            raise ValueError("recipient_domain_not_allowed")
+            raise self._reject(anchor["case_id"], draft, "recipient_domain_not_allowed", request_id)
         message = EmailMessage(); message["From"] = self.settings.smtp_from_address; message["To"] = draft["recipient"]; message["Subject"] = draft["subject"]; message["Message-ID"] = f"<{draft_id}@traceveil.local>"; message.set_content(draft["body"])
-        with open(report["file_path"], "rb") as file:
-            message.add_attachment(file.read(), maintype="application", subtype="pdf", filename=f"traceveil-{report['report_id']}.pdf")
+        # Only report-bound notifications carry the PDF; alert and incident
+        # notifications reference deterministic artifacts by identifier.
+        if report is not None and report.get("file_path"):
+            with open(report["file_path"], "rb") as file:
+                message.add_attachment(file.read(), maintype="application", subtype="pdf", filename=f"traceveil-{report['report_id']}.pdf")
         attempt_id, now = str(uuid4()), utcnow()
         try:
             with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port, timeout=10) as smtp:
@@ -1144,8 +1593,26 @@ class Phase3Service:
             status, error = "sent", None
         except Exception as exc:
             status, error = "delivery_unknown", str(exc)
+        # The delivery attempt, the draft's terminal state, the alert's
+        # notification status and the terminal audit record are written in
+        # one transaction. Auditing after the commit would mean a crash or
+        # a failing audit insert could leave a completed delivery with no
+        # audit history - the operational record and the history of it must
+        # land together or not at all.
+        #
+        # `_audit_locked` is used rather than `audit` precisely because the
+        # latter opens its own transaction, which would commit the other
+        # three rows early and reintroduce the window this closes.
         with self.repository.write_lock, self.db:
             self.db.execute("INSERT INTO delivery_attempts VALUES(?,?,?,?,?,?,?)", (attempt_id, draft_id, request_id, status, message["Message-ID"], error, now))
             self.db.execute("UPDATE email_drafts SET status=?,sent_at=?,smtp_message_id=?,delivery_error=?,updated_at=? WHERE draft_id=?", (status, now if status == "sent" else None, message["Message-ID"], error, now, draft_id))
-        self.audit(report["case_id"], f"email.{status}", "email_draft", draft_id, request_id=request_id, details={"message_id": message["Message-ID"]})
+            notified = self._sync_alert_notification(anchor["case_id"], draft, status, error, now)
+            # Bounded by construction: identifiers, a message id and a list
+            # of alert ids. No recipient, body, attachment or SMTP text.
+            self._audit_locked(anchor["case_id"], f"email.{status}", "email_draft", draft_id,
+                               request_id=request_id,
+                               details={"message_id": message["Message-ID"],
+                                        "subject_type": anchor["subject_type"],
+                                        "subject_id": draft["subject_id"],
+                                        "notified_alert_ids": notified})
         return self.get_email_draft(draft_id)
