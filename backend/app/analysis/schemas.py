@@ -293,6 +293,12 @@ class Incident(BaseModel):
     maximum_risk: int = Field(ge=0, le=100)
     severity: Severity | None = None
     severity_counts: dict[Severity, int] = Field(default_factory=dict)
+    # Step 11: a deterministic, backend-authored one-line description of the
+    # incident, assembled purely from the counts and bounds computed above.
+    # It contains no model output and is produced before any AI narration, so
+    # a reader always has an authoritative summary that does not depend on
+    # Qwen being available - or truthful.
+    summary: str = Field(default="", max_length=1024)
     evidence_count: int = Field(default=0, ge=0)
     entity_count: int = Field(default=0, ge=0)
     entity_ids: list[str] = Field(default_factory=list, max_length=1024)

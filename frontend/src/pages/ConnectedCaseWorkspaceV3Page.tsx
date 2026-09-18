@@ -4,6 +4,8 @@ import { phase3Api } from "../api/phase3";
 import { normalizeApiError, serializeQuery } from "../api/client";
 import { Button, PageHeader } from "../components/ui/core";
 import { ConnectedReportsPanel } from "./ConnectedReportsPanel";
+import { ArtifactNotificationPanel } from "../features/reports/ArtifactNotificationPanel";
+import { useLiveInvalidation } from "../features/live/useLiveInvalidation";
 import { mapInvestigationRecords, type InvestigationRecordKind, type InvestigationRecordViewModel } from "../features/investigation/viewModels";
 import { IncidentContext, PersistedTimeline, PersistedVisuals, TimelineActivityOverview, type TimelineWindowSummary } from "../features/investigation/PersistedVisuals";
 import type { components } from "../api/generated";
@@ -21,7 +23,9 @@ const columns: Record<string, string[]> = {
   events: ["event_id", "observed_at", "origin", "event_type", "entity_id"],
   findings: ["finding_id", "title", "entity_id", "classification_source", "severity", "risk_score", "rule_id"],
   alerts: ["alert_id", "title", "severity", "risk_score", "workflow_status", "notification_status", "triggered_at"],
-  incidents: ["incident_id", "severity", "maximum_risk", "finding_count", "evidence_count", "entity_count", "entity_ids", "started_at", "ended_at"],
+  // `summary` leads the incident table: it is the deterministic, backend-authored
+  // account of the incident, and a reader should meet it before the raw counts.
+  incidents: ["incident_id", "summary", "severity", "maximum_risk", "finding_count", "evidence_count", "entity_count", "entity_ids", "started_at", "ended_at"],
   timeline: ["entry_id", "occurred_at", "entry_type", "title", "severity", "risk_score"],
   audit: ["occurred_at", "action", "actor", "subject_type", "subject_id", "request_id"],
   aggregates: ["series", "category", "subgroup", "value"],
@@ -30,6 +34,9 @@ const columns: Record<string, string[]> = {
   "graph edges": ["edge_id", "source_node_id", "target_node_id", "relationships", "event_count"],
 };
 const analysisSections = new Set(["findings", "alerts", "incidents", "timeline", "visuals"]);
+// Sections whose contents change when live analysis re-runs. Evidence and
+// canonical events are append-only source records and are left alone.
+const liveInvalidatedSections = new Set(["overview", "findings", "alerts", "incidents", "timeline"]);
 const visualAliases = new Set(["graph", "charts", "aggregates", "analytics"]);
 const primaryTabs = ["overview", "evidence", "findings", "timeline", "visuals", "reports"];
 const timelineWindowsPerPage = 10;
@@ -50,6 +57,7 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
   const [query, setQuery] = useState(""); const [pageNumber, setPageNumber] = useState(1); const [reportRefresh, setReportRefresh] = useState(0);
   const [selected, setSelected] = useState<InvestigationRecordViewModel | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [liveUpdate, setLiveUpdate] = useState<string | null>(null);
   const [relatedIncidents, setRelatedIncidents] = useState<Record<string, unknown>[]>([]);
   const [timelinePoints, setTimelinePoints] = useState<Record<string, unknown>[]>([]);
   const [activityWindows, setActivityWindows] = useState<ActivityWindowExplanation[]>([]);
@@ -125,6 +133,48 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
 
   useEffect(() => { const controller = loadWorkspace("initial"); return () => controller?.abort(); }, [loadWorkspace]);
 
+  // Step 7: the case workspace subscribes to live invalidation, not only
+  // Live Monitor. Without this an investigator reading the Timeline here
+  // would keep seeing a stale chronology while live events were being
+  // accepted, and would have to navigate away and back to notice.
+  //
+  // Two rules make that safe. A deliberately pinned historical snapshot is
+  // never replaced - `active` is false whenever an analysis is pinned - so
+  // reviewing the past is not disturbed by the present. And when a record
+  // drawer is open, the view is not swapped underneath the investigator;
+  // an explicit action is offered instead.
+  //
+  // The signal carries only identifiers, so every refresh re-reads the
+  // investigation API. Out-of-order responses cannot regress the display:
+  // `loadWorkspace` aborts the previous request and discards any response
+  // that is no longer the newest.
+  const detailOpenRef = useRef(detailOpen); detailOpenRef.current = detailOpen;
+  const lastLiveAnalysis = useRef<string | null>(null);
+  useLiveInvalidation({
+    caseId: caseId || null,
+    active: !selectedAnalysisId && liveInvalidatedSections.has(section),
+    topics: ["timeline.updated"],
+    onMessage: message => {
+      if (message.topic !== "timeline.updated") return;
+      const analysisId = String((message.payload ?? {}).analysis_id ?? "");
+      if (!analysisId || analysisId === lastLiveAnalysis.current) return;
+      lastLiveAnalysis.current = analysisId;
+      if (detailOpenRef.current) { setLiveUpdate(analysisId); return; }
+      setLiveUpdate(null); loadWorkspace("refresh");
+    },
+    // A reset means the stream could not be resumed, so this view may be
+    // stale with no `timeline.updated` frame following to correct it.
+    // The section is reloaded from the investigation API directly, and
+    // the last-seen analysis is forgotten so the next signal is not
+    // mistaken for one already applied.
+    onReset: () => {
+      lastLiveAnalysis.current = null;
+      if (detailOpenRef.current) { setLiveUpdate("reset"); return; }
+      setLiveUpdate(null); loadWorkspace("refresh");
+    },
+  });
+  const applyLiveUpdate = () => { setLiveUpdate(null); setDetailOpen(false); loadWorkspace("refresh"); };
+
   const refreshWorkspace = () => {
     if (refreshFlight.current) return;
     refreshFlight.current = true;
@@ -157,12 +207,18 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
   const object = record(activeData); const result = object as PageResult; const all = Array.isArray(result.items) ? result.items : [];
   const mapped = mapInvestigationRecords(section as InvestigationRecordKind, all);
   useEffect(() => {
-    if (viewLoading || error || !["evidence", "events"].includes(section)) return;
-    const parameter = section === "evidence" ? "evidence" : "event"; const requestedId = new URLSearchParams(search).get(parameter);
+    // `alerts` is deep-linkable so Live Monitor can hand an investigator
+    // straight to a new alert's record - and therefore to its notification
+    // panel - without making them find the row by hand.
+    if (viewLoading || error || !["evidence", "events", "alerts"].includes(section)) return;
+    const parameter = section === "evidence" ? "evidence" : section === "alerts" ? "alert" : "event"; const requestedId = new URLSearchParams(search).get(parameter);
     if (!requestedId) { setReferenceError(null); setSelected(null); setDetailOpen(false); return; }
     if (!uuid.test(requestedId)) { setSelected(null); setDetailOpen(false); setReferenceError(`The requested ${parameter} reference is malformed.`); return; }
     const existing = mapped.find(item => item.id === requestedId);
     if (existing) { setSelected(existing); setDetailOpen(true); setReferenceError(null); return; }
+    // An alert lives in the persisted alert page; if it is not on the page
+    // being shown, say so rather than inventing a record for it.
+    if (section === "alerts") { setSelected(null); setDetailOpen(false); setReferenceError("The requested alert is not in the current analysis snapshot."); return; }
     const controller = new AbortController(); setResolvingReference(true); setReferenceError(null);
     const detailPath = section === "evidence" ? `/cases/${id}/evidence/${requestedId}` : `/cases/${id}/events/${requestedId}`;
     void apiClient.request<Record<string, unknown>>(detailPath, { signal: controller.signal }).then(value => { setSelected(mapInvestigationRecords(section as InvestigationRecordKind, [value])[0]); setDetailOpen(true); }).catch(() => { if (!controller.signal.aborted) { setSelected(null); setDetailOpen(false); setReferenceError(`The requested ${parameter} is unavailable or does not belong to this case.`); } }).finally(() => { if (!controller.signal.aborted) setResolvingReference(false); });
@@ -180,6 +236,9 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
   const visualData = record(data); const chartResult = record(visualData.charts) as PageResult; const graphResult = record(visualData.graph) as { nodes?: Record<string, unknown>[]; edges?: Record<string, unknown>[]; truncated?: boolean };
   return <><PageHeader eyebrow={`Persisted investigation · CASE-${id.padStart(4, "0")}`} title={names[section] ?? heading(section)} description="Connected records and visual summaries preserve backend-authored identifiers, timestamps, provenance, rule traces, and risk factors." actions={<><Button onClick={() => navigate(`/cases/${id}/history${snapshotSearch}`)}>Analysis history</Button><Button disabled={viewLoading || refreshing} onClick={refreshWorkspace}>{refreshing ? "Refreshing…" : "Refresh"}</Button><Button onClick={() => navigate(`/import?case=${id}`)}>Import evidence</Button><Button variant="primary" disabled={reanalyzing} onClick={reanalyze}>{reanalyzing ? "Reanalyzing…" : "Reanalyze"}</Button></>}/>
     <nav className="case-tabs case-tabs-primary" aria-label="Connected case views">{primaryTabs.map(tab => <button className={primarySection === tab ? "active" : ""} onClick={() => navigate(`/cases/${id}/${tab}${snapshotSearch}`)} key={tab}>{tab}</button>)}</nav>
+    {/* Offered rather than applied: replacing the view while a record is
+        open would pull the investigator out of what they were reading. */}
+    {liveUpdate && <div className="live-update-banner" role="status"><span>New live results available. A newer deterministic analysis has been persisted for this case.</span><Button variant="primary" onClick={applyLiveUpdate}>Show new live results</Button><Button onClick={() => setLiveUpdate(null)}>Keep current view</Button></div>}
     {(["evidence", "events"].includes(section) || ["findings", "alerts", "incidents"].includes(section) || ["reports", "audit"].includes(section)) && <nav className="case-subtabs" aria-label={`${primarySection} views`}>{(primarySection === "evidence" ? [["evidence", "Imported evidence"], ["events", "Canonical events"]] : primarySection === "findings" ? [["findings", "Findings"], ["incidents", "Incidents"], ["alerts", "Alerts"]] : [["reports", "Reports"], ["audit", "Audit history"]]).map(([tab, label]) => <button className={section === tab ? "active" : ""} onClick={() => navigate(`/cases/${id}/${tab}${snapshotSearch}`)} key={tab}>{label}</button>)}</nav>}
     {refreshing && <div className="workspace-notice" role="status"><div><b>Refreshing persisted data</b><p>The current view remains available while Traceveil reloads this case.</p></div></div>}
     {refreshError && <div className="workspace-notice reference-warning" role="alert"><div><b>Refresh failed</b><p>{refreshError} Existing results remain available.</p></div><Button disabled={refreshing} onClick={refreshWorkspace}>Retry</Button></div>}
@@ -300,7 +359,12 @@ function RecordDetail({ item, caseId, analysisId, navigate, onClose }: { item: I
     return () => document.removeEventListener("keydown", close);
   }, [item.id, onClose]);
   const changeWorkflow = async (status: "pending" | "acknowledged" | "resolved" | "suppressed") => { setWorkflowBusy(true); setWorkflowError(null); try { const updated = await apiClient.request<Record<string, unknown>>(`/cases/${caseId}/alerts/${item.id}`, { method: "PATCH", body: JSON.stringify({ status, actor: "Investigator" }) }); setWorkflowStatus(String(updated.workflow_status ?? status)); } catch (reason) { setWorkflowError(normalizeApiError(reason).message); } finally { setWorkflowBusy(false); } };
-  return <div className="record-detail-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><aside className="record-detail-panel" role="dialog" aria-modal="true" aria-label={`Details for ${item.id}`}><header><div><span>{heading(item.kind)} record</span><h2>{item.title}</h2><code>{item.id}</code></div><button ref={closeRef} className="record-detail-close" onClick={onClose} aria-label="Close record details">×</button></header>{item.kind === "alerts" && <div className="alert-workflow"><strong>Workflow · {workflowStatus}</strong><div>{(["pending", "acknowledged", "resolved", "suppressed"] as const).map(status => <Button key={status} disabled={workflowBusy || status === workflowStatus} onClick={() => void changeWorkflow(status)}>{heading(status)}</Button>)}</div>{workflowError && <p role="alert">{workflowError}</p>}</div>}{item.kind === "findings" && <FindingAnalysis source={item.source as Record<string, unknown>}/>} {item.kind === "incidents" && <IncidentAnalysis source={item.source as Record<string, unknown>}/>}<details className="raw-record-details"><summary>All persisted fields</summary><dl className="record-details">{Object.entries(item.source).map(([key, value]) => <DetailValue key={key} name={key} value={value} caseId={caseId} analysisId={analysisId} navigate={navigate}/>)}</dl></details></aside></div>;
+  return <div className="record-detail-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><aside className="record-detail-panel" role="dialog" aria-modal="true" aria-label={`Details for ${item.id}`}><header><div><span>{heading(item.kind)} record</span><h2>{item.title}</h2><code>{item.id}</code></div><button ref={closeRef} className="record-detail-close" onClick={onClose} aria-label="Close record details">×</button></header>{item.kind === "alerts" && <div className="alert-workflow"><strong>Workflow · {workflowStatus}</strong><div>{(["pending", "acknowledged", "resolved", "suppressed"] as const).map(status => <Button key={status} disabled={workflowBusy || status === workflowStatus} onClick={() => void changeWorkflow(status)}>{heading(status)}</Button>)}</div>{workflowError && <p role="alert">{workflowError}</p>}</div>}{item.kind === "findings" && <FindingAnalysis source={item.source as Record<string, unknown>}/>} {item.kind === "incidents" && <IncidentAnalysis source={item.source as Record<string, unknown>}/>}
+      {/* Step 11: notify about this deterministic artifact directly. No
+          report is required and no PDF is attached; approval is pinned to
+          the artifact's content hash. */}
+      {(item.kind === "alerts" || item.kind === "incidents") && <ArtifactNotificationPanel caseId={Number(caseId)} subjectType={item.kind === "alerts" ? "alert" : "incident"} subjectId={item.id}/>}
+      <details className="raw-record-details"><summary>All persisted fields</summary><dl className="record-details">{Object.entries(item.source).map(([key, value]) => <DetailValue key={key} name={key} value={value} caseId={caseId} analysisId={analysisId} navigate={navigate}/>)}</dl></details></aside></div>;
 }
 
 function FindingAnalysis({ source }: { source: Record<string, unknown> }) {
@@ -322,7 +386,12 @@ function IncidentAnalysis({ source }: { source: Record<string, unknown> }) {
   const tags = Array.isArray(source.tags) ? source.tags.map(String) : [];
   const entityIds = Array.isArray(source.entity_ids) ? source.entity_ids.map(String) : [];
   const bounded = source.grouping_policy === "finding_centered_bounded_session";
-  return <section className="incident-explainer" aria-label="Incident scope"><header><div><span>Correlated investigation unit</span><h3>{String(source.severity ?? "unrated")} severity · risk {String(source.maximum_risk ?? 0)}</h3><p>{bounded ? `Finding-centred session · ${String(source.inactivity_window_seconds)}s inactivity boundary · ${String(source.maximum_trigger_span_seconds)}s maximum trigger span` : "Legacy transitive correlation component"}</p>{entityIds.length > 0 && <p>Affected identities: {entityIds.join(", ")}</p>}</div></header><div><span><b>{String(source.finding_count ?? (Array.isArray(source.finding_ids) ? source.finding_ids.length : 0))}</b> findings</span><span><b>{String(source.evidence_count ?? 0)}</b> evidence files</span><span><b>{String(source.entity_count ?? 0)}</b> entities</span><span><b>{String(source.correlation_edge_count ?? 0)}</b> correlations</span></div>{tags.length > 0 && <p>{tags.map(tag => <i key={tag}>{heading(tag)}</i>)}</p>}</section>;
+  const summary = String(source.summary ?? "");
+  return <section className="incident-explainer" aria-label="Incident scope"><header><div><span>Correlated investigation unit</span><h3>{String(source.severity ?? "unrated")} severity · risk {String(source.maximum_risk ?? 0)}</h3>
+    {/* The deterministic summary is backend-authored and computed before any
+        AI narration, so it leads the panel as the authoritative account. */}
+    {summary && <p className="incident-deterministic-summary"><b>Deterministic summary</b> · {summary}</p>}
+    <p>{bounded ? `Finding-centred session · ${String(source.inactivity_window_seconds)}s inactivity boundary · ${String(source.maximum_trigger_span_seconds)}s maximum trigger span` : "Legacy transitive correlation component"}</p>{entityIds.length > 0 && <p>Affected identities: {entityIds.join(", ")}</p>}</div></header><div><span><b>{String(source.finding_count ?? (Array.isArray(source.finding_ids) ? source.finding_ids.length : 0))}</b> findings</span><span><b>{String(source.evidence_count ?? 0)}</b> evidence files</span><span><b>{String(source.entity_count ?? 0)}</b> entities</span><span><b>{String(source.correlation_edge_count ?? 0)}</b> correlations</span></div>{tags.length > 0 && <p>{tags.map(tag => <i key={tag}>{heading(tag)}</i>)}</p>}</section>;
 }
 
 function percent(value: unknown) { const numeric = Number(value); if (!Number.isFinite(numeric)) return "—"; return `${Math.round((numeric <= 1 ? numeric * 100 : numeric))}%`; }
