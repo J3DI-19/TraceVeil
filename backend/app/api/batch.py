@@ -159,7 +159,17 @@ def case_evidence_detail(case_id:int,evidence_id:UUID,request:Request) -> Eviden
     result=public_evidence(row,db); result["issues"]=[public_issue(r) for r in db.execute("SELECT level,error_code,message,row_number,field_name,rejected_value FROM evidence_validation_issues WHERE evidence_metadata_id=?",(row["id"],)).fetchall()]; return result
 
 @router.get("/cases/{case_id}/events")
-def events(case_id:int,request:Request,page_number:int=Query(1,alias="page",ge=1),page_size:int=Query(50,ge=1,le=200),origin:str|None=None,event_type:str|None=None,entity:str|None=None,source:EvidenceSource|None=None,start_time:str|None=None,end_time:str|None=None) -> PageResponse[EventPublic]:
+def events(case_id:int,request:Request,page_number:int=Query(1,alias="page",ge=1),page_size:int=Query(50,ge=1,le=200),origin:str|None=None,event_type:str|None=None,entity:str|None=None,source:EvidenceSource|None=None,start_time:str|None=None,end_time:str|None=None,order:Literal["asc","desc"]=Query("asc")) -> PageResponse[EventPublic]:
+    """Canonical events for a case.
+
+    `order` selects chronological direction. It defaults to `asc` - the
+    long-standing behaviour - so existing callers are unaffected. `desc`
+    exists for live recovery: after a stream gap the browser needs the
+    most recent records, and page 1 ascending is the oldest history of
+    the case, not the feed the operator was watching. Expressing that in
+    the API keeps the selection backend-authored rather than having the
+    browser guess which page holds "recent".
+    """
     service(request).get_case(case_id); db=service(request).db; where=["case_id=?"]; values:list[Any]=[case_id]
     if origin: where.append("origin=?"); values.append(origin)
     if event_type: where.append("event_type=?"); values.append(event_type)
@@ -168,7 +178,9 @@ def events(case_id:int,request:Request,page_number:int=Query(1,alias="page",ge=1
     if start_time: where.append("COALESCE(observed_at,ingested_at)>=?"); values.append(start_time)
     if end_time: where.append("COALESCE(observed_at,ingested_at)<=?"); values.append(end_time)
     clause=" AND ".join(where); total=db.execute(f"SELECT COUNT(*) FROM canonical_events WHERE {clause}",values).fetchone()[0]
-    rows=db.execute(f"SELECT canonical_json,raw_record_json FROM canonical_events WHERE {clause} ORDER BY COALESCE(observed_at,ingested_at),event_id LIMIT ? OFFSET ?",(*values,page_size,(page_number-1)*page_size)).fetchall()
+    # `order` is a validated Literal, never interpolated user text.
+    direction="DESC" if order=="desc" else "ASC"
+    rows=db.execute(f"SELECT canonical_json,raw_record_json FROM canonical_events WHERE {clause} ORDER BY COALESCE(observed_at,ingested_at) {direction},event_id {direction} LIMIT ? OFFSET ?",(*values,page_size,(page_number-1)*page_size)).fetchall()
     return page([{**json.loads(r[0]),"raw_record":json.loads(r[1])} for r in rows],total,page_number,page_size)
 @router.get("/events/{event_id}")
 def event(event_id:UUID,request:Request) -> EventPublic:
@@ -183,7 +195,7 @@ def case_event(case_id:int,event_id:UUID,request:Request) -> EventPublic:
     if not row: raise KeyError("event_not_found")
     return {**json.loads(row[0]),"raw_record":json.loads(row[1])}
 
-def artifacts(case_id:int,kind:str,request:Request,page_number:int,page_size:int,severity:str|None=None,start_time:str|None=None,end_time:str|None=None,analysis_id:UUID|None=None,window_key:str|None=None):
+def artifacts(case_id:int,kind:str,request:Request,page_number:int,page_size:int,severity:str|None=None,start_time:str|None=None,end_time:str|None=None,analysis_id:UUID|None=None,window_key:str|None=None,order:str="asc"):
     service(request).get_case(case_id); db=service(request).db
     latest=(db.execute("SELECT analysis_id FROM analysis_runs WHERE case_id=? AND analysis_id=?",(case_id,str(analysis_id))).fetchone() if analysis_id else db.execute("SELECT analysis_id FROM analysis_runs WHERE case_id=? ORDER BY created_at DESC LIMIT 1",(case_id,)).fetchone())
     if not latest:return page([],0,page_number,page_size)
@@ -194,7 +206,8 @@ def artifacts(case_id:int,kind:str,request:Request,page_number:int,page_size:int
     if window_key == "unavailable": where.append("occurred_at IS NULL")
     elif window_key: where.append("substr(occurred_at,1,16)=?"); values.append(window_key)
     clause=" AND ".join(where); total=db.execute(f"SELECT COUNT(*) FROM analysis_artifacts WHERE {clause}",values).fetchone()[0]
-    rows=db.execute(f"SELECT item_id,payload_json FROM analysis_artifacts WHERE {clause} ORDER BY COALESCE(occurred_at,''),item_id LIMIT ? OFFSET ?",(*values,page_size,(page_number-1)*page_size)).fetchall()
+    direction="DESC" if order=="desc" else "ASC"
+    rows=db.execute(f"SELECT item_id,payload_json FROM analysis_artifacts WHERE {clause} ORDER BY COALESCE(occurred_at,'') {direction},item_id {direction} LIMIT ? OFFSET ?",(*values,page_size,(page_number-1)*page_size)).fetchall()
     items=[json.loads(r["payload_json"]) for r in rows]
     if kind == "alert" and items:
         states = {
@@ -244,8 +257,8 @@ def analysis(analysis_id:UUID,request:Request) -> AnalysisResult:
     return json.loads(row[0])
 
 def artifact_endpoint(kind: str):
-    def endpoint(case_id:int,request:Request,page_number:int=Query(1,alias="page",ge=1),page_size:int=Query(50,ge=1,le=200),severity:str|None=None,start_time:str|None=None,end_time:str|None=None,analysis_id:UUID|None=None,window_key:str|None=None):
-        return artifacts(case_id,kind,request,page_number,page_size,severity,start_time,end_time,analysis_id,window_key)
+    def endpoint(case_id:int,request:Request,page_number:int=Query(1,alias="page",ge=1),page_size:int=Query(50,ge=1,le=200),severity:str|None=None,start_time:str|None=None,end_time:str|None=None,analysis_id:UUID|None=None,window_key:str|None=None,order:Literal["asc","desc"]=Query("asc")):
+        return artifacts(case_id,kind,request,page_number,page_size,severity,start_time,end_time,analysis_id,window_key,order)
     return endpoint
 
 for path,kind,model in [("findings","finding",DetectionFinding),("alerts","alert",Alert),("incidents","incident",Incident),("timeline","timeline",TimelineEntry)]:

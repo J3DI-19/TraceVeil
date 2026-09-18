@@ -194,6 +194,40 @@ export interface paths {
         patch: operations["update_alert_workflow_api_v1_cases__case_id__alerts__alert_id__patch"];
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/alerts/{alert_id}/email-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Alert Email Draft */
+        post: operations["create_alert_email_draft_api_v1_cases__case_id__alerts__alert_id__email_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/alerts/{alert_id}/notification-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Alert Notification */
+        get: operations["preview_alert_notification_api_v1_cases__case_id__alerts__alert_id__notification_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/analyses": {
         parameters: {
             query?: never;
@@ -280,6 +314,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/email-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Case Email Drafts */
+        get: operations["list_case_email_drafts_api_v1_cases__case_id__email_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/events": {
         parameters: {
             query?: never;
@@ -287,7 +338,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Events */
+        /**
+         * Events
+         * @description Canonical events for a case.
+         *
+         *     `order` selects chronological direction. It defaults to `asc` - the
+         *     long-standing behaviour - so existing callers are unaffected. `desc`
+         *     exists for live recovery: after a stream gap the browser needs the
+         *     most recent records, and page 1 ascending is the oldest history of
+         *     the case, not the feed the operator was watching. Expressing that in
+         *     the API keeps the selection backend-authored rather than having the
+         *     browser guess which page holds "recent".
+         */
         get: operations["events_api_v1_cases__case_id__events_get"];
         put?: never;
         post?: never;
@@ -408,6 +470,40 @@ export interface paths {
         };
         /** List Incidents */
         get: operations["list_incidents_api_v1_cases__case_id__incidents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/incidents/{incident_id}/email-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Incident Email Draft */
+        post: operations["create_incident_email_draft_api_v1_cases__case_id__incidents__incident_id__email_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/incidents/{incident_id}/notification-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Incident Notification */
+        get: operations["preview_incident_notification_api_v1_cases__case_id__incidents__incident_id__notification_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1380,6 +1476,23 @@ export interface components {
              */
             confirmed: true;
         };
+        /**
+         * ArtifactEmailDraftBody
+         * @description Step 11: an artifact notification needs only a recipient.
+         *
+         *     `subject` and `body` are optional investigator edits. When they are
+         *     omitted the backend composes both from the persisted alert or
+         *     incident, so the draft's text can never drift away from the artifact
+         *     it is anchored to.
+         */
+        ArtifactEmailDraftBody: {
+            /** Body */
+            body?: string | null;
+            /** Recipient */
+            recipient: string;
+            /** Subject */
+            subject?: string | null;
+        };
         /** AssistantErrorPublic */
         AssistantErrorPublic: {
             /** Code */
@@ -2313,6 +2426,11 @@ export interface components {
             };
             /** Started At */
             started_at: string | null;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
             /** Tags */
             tags?: string[];
         };
@@ -3162,6 +3280,7 @@ export interface operations {
                 end_time?: string | null;
                 analysis_id?: string | null;
                 window_key?: string | null;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -3214,6 +3333,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Alert"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_alert_email_draft_api_v1_cases__case_id__alerts__alert_id__email_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactEmailDraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_alert_notification_api_v1_cases__case_id__alerts__alert_id__notification_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3426,6 +3613,40 @@ export interface operations {
             };
         };
     };
+    list_case_email_drafts_api_v1_cases__case_id__email_drafts_get: {
+        parameters: {
+            query?: {
+                subject_type?: string | null;
+                subject_id?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     events_api_v1_cases__case_id__events_get: {
         parameters: {
             query?: {
@@ -3437,6 +3658,7 @@ export interface operations {
                 source?: components["schemas"]["EvidenceSource"] | null;
                 start_time?: string | null;
                 end_time?: string | null;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -3575,6 +3797,7 @@ export interface operations {
                 end_time?: string | null;
                 analysis_id?: string | null;
                 window_key?: string | null;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -3684,6 +3907,7 @@ export interface operations {
                 end_time?: string | null;
                 analysis_id?: string | null;
                 window_key?: string | null;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -3700,6 +3924,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageResponse_Incident_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_incident_email_draft_api_v1_cases__case_id__incidents__incident_id__email_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactEmailDraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_incident_notification_api_v1_cases__case_id__incidents__incident_id__notification_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3952,6 +4244,7 @@ export interface operations {
                 end_time?: string | null;
                 analysis_id?: string | null;
                 window_key?: string | null;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -4598,7 +4891,7 @@ export interface operations {
                 topics?: string;
             };
             header?: {
-                "Last-Event-ID"?: number | null;
+                "Last-Event-ID"?: string | null;
             };
             path?: never;
             cookie?: never;
