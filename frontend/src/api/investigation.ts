@@ -38,6 +38,10 @@ export interface InvestigationFilters {
   startTime?: string;
   endTime?: string;
   analysisId?: string | null;
+  /** Chronological direction. Defaults to `asc` server-side; `desc` is what
+   *  live recovery needs, since page 1 ascending is the oldest history of
+   *  the case rather than the feed the operator was watching. */
+  order?: "asc" | "desc";
 }
 
 const pageQuery = (filters: InvestigationFilters) => serializeQuery({
@@ -50,6 +54,7 @@ const pageQuery = (filters: InvestigationFilters) => serializeQuery({
   start_time: filters.startTime,
   end_time: filters.endTime,
   analysis_id: filters.analysisId,
+  order: filters.order,
 });
 
 export const investigationApi = {

@@ -13,6 +13,42 @@ function respond(routes: Record<string, unknown>) {
   }));
 }
 
+
+/**
+ * Step 7 - the case workspace must respond to live invalidation too, not
+ * only Live Monitor. This responder adds an SSE stream and lets the
+ * timeline endpoint return a different page on each call, so a test can
+ * prove the view was refetched rather than re-rendered from a payload.
+ */
+function respondLive(routes: Record<string, unknown[]>, frames: string[] = []) {
+  const counts: Record<string, number> = {};
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    const path = new URL(url, "http://traceveil.test").pathname;
+    calls.push(url);
+    if (path.endsWith("/live/stream")) {
+      return Promise.resolve(new Response(new ReadableStream({
+        start(controller) { if (frames.length) controller.enqueue(new TextEncoder().encode(frames.join(""))); },
+      }), { status: 200 }));
+    }
+    const suffix = Object.keys(routes).find(route => path.endsWith(route));
+    if (!suffix) return Promise.resolve(new Response(JSON.stringify({ code: "not_found", message: "Not found", retryable: false }), { status: 404, headers: { "Content-Type": "application/json" } }));
+    const index = Math.min(counts[suffix] ?? 0, routes[suffix].length - 1);
+    counts[suffix] = (counts[suffix] ?? 0) + 1;
+    return Promise.resolve(new Response(JSON.stringify(routes[suffix][index]), { status: 200, headers: { "Content-Type": "application/json" } }));
+  }));
+  return { calls, count: (suffix: string) => counts[suffix] ?? 0 };
+}
+
+const resetFrame = (id: number, reason = "cursor_expired") =>
+  `id: ${id}\nevent: stream.reset\ndata: ${JSON.stringify({ schema_version: "1.0", id, topic: "stream.reset", case_id: 7, payload: { schema_version: "1.0", reason, requested_from: 1, earliest_retained: 40, resume_from: 39, resynchronize: ["devices", "metrics", "timeline", "events", "alerts"] } })}\n\n`;
+
+const timelineFrame = (id: number, analysisId: string) =>
+  `id: ${id}\nevent: timeline.updated\ndata: ${JSON.stringify({ schema_version: "1.0", id, topic: "timeline.updated", case_id: 7, payload: { case_id: 7, analysis_id: analysisId, entry_count: 2 } })}\n\n`;
+
+const timelineWindows = (label: string) => ({ items: [{ key: label, started_at: "2026-09-01T00:05:00Z", ended_at: "2026-09-01T00:05:59Z", record_count: 1, category_counts: { event: 1 }, peak_severity: "high" }], page: 1, page_size: 10, total: 1, record_total: 1 });
+
 describe("ConnectedCaseWorkspaceV3Page", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -322,5 +358,129 @@ describe("ConnectedCaseWorkspaceV3Page", () => {
     expect(attribution).toHaveTextContent("6.00× baseline");
     expect(attribution).toHaveTextContent("undetermined");
     expect(attribution).toHaveTextContent("not a DDoS conclusion");
+  });
+
+  it("refreshes an open latest-snapshot timeline when live analysis lands", async () => {
+    // The signal carries identifiers only, so the newer window can only
+    // appear if the page refetched from the investigation API.
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-1")],
+      "/cases/7/timeline/windows": [timelineWindows("2026-09-01T00:05"), timelineWindows("2026-09-01T00:06")],
+      "/cases/7/charts": [page([])],
+      "/cases/7/activity-windows": [page([])],
+    }, [timelineFrame(9, "analysis-2")]);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/timeline" navigate={vi.fn()}/>);
+
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBeGreaterThan(1));
+  });
+
+  it("never replaces a pinned historical snapshot with live results", async () => {
+    // Reviewing a fixed past analysis is deliberate; live activity must
+    // not pull the investigator forward out of it.
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-9")],
+      "/cases/7/analyses/55555555-5555-4555-8555-555555555555": [{ analysis_id: "55555555-5555-4555-8555-555555555555", case_id: 7, status: "completed", created_at: "2026-09-01T00:00:00Z" }],
+      "/cases/7/timeline/windows": [timelineWindows("2026-09-01T00:05"), timelineWindows("2026-09-01T00:06")],
+      "/cases/7/charts": [page([])],
+      "/cases/7/activity-windows": [page([])],
+    }, [timelineFrame(9, "analysis-2")]);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/timeline" search="?analysis=55555555-5555-4555-8555-555555555555" navigate={vi.fn()}/>);
+
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBeGreaterThan(0));
+    // No live stream is opened at all while a snapshot is pinned.
+    expect(harness.calls.filter(url => url.includes("/live/stream"))).toHaveLength(0);
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBe(1));
+  });
+
+  it("offers rather than forces a refresh while a record is open", async () => {
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-1")],
+      "/cases/7/incidents": [page([{ incident_id: "incident-1", summary: "Highest severity high; maximum risk 78/100 across 3 findings.", severity: "high", maximum_risk: 78, finding_count: 3, evidence_count: 4, entity_count: 2, entity_ids: ["door"], started_at: "2026-09-01T00:00:00Z", ended_at: "2026-09-01T00:05:00Z" }])],
+      "/cases/7/email-drafts": [{ items: [] }],
+      "/incidents/incident-1/notification-preview": [{ subject_type: "incident", subject_id: "incident-1", subject: "s", body: "b" }],
+    }, []);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/incidents" navigate={vi.fn()}/>);
+    fireEvent.click(await screen.findByRole("button", { name: "Inspect incident-1" }));
+    const drawer = screen.getByLabelText("Details for incident-1");
+    // The deterministic summary is surfaced, not buried in the raw fields.
+    expect(drawer).toHaveTextContent("Deterministic summary");
+    expect(drawer).toHaveTextContent("maximum risk 78/100");
+    expect(harness.count("/cases/7/summary")).toBeGreaterThan(0);
+  });
+
+  it("opens a live alert straight from a deep link, notification panel and all", async () => {
+    // Live Monitor hands the investigator this URL. Landing on the list
+    // and having to find the row would defeat the point.
+    respondLive({
+      "/cases/7/summary": [summary("analysis-1")],
+      "/cases/7/alerts": [page([{ alert_id: "66666666-6666-4666-8666-666666666666", title: "Repeated authentication failures", rule_id: "AUTH-001", severity: "critical", risk_score: 90, workflow_status: "pending", notification_status: "not_requested", triggered_at: "2026-09-15T10:00:09Z" }])],
+      "/cases/7/email-drafts": [{ items: [] }],
+      "/alerts/66666666-6666-4666-8666-666666666666/notification-preview": [{ subject_type: "alert", subject_id: "66666666-6666-4666-8666-666666666666", subject: "[Traceveil] CRITICAL alert AUTH-001", body: "Alert: 66666666-6666-4666-8666-666666666666" }],
+    }, []);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/alerts" search="?alert=66666666-6666-4666-8666-666666666666" navigate={vi.fn()}/>);
+
+    const drawer = await screen.findByLabelText("Details for 66666666-6666-4666-8666-666666666666");
+    expect(drawer).toHaveTextContent("Notify about this alert");
+    expect(await screen.findByLabelText("Notification recipient")).toBeTruthy();
+  });
+
+  it("reloads on a reset even when no timeline signal follows it", async () => {
+    // A reset says the stream could not be resumed. Nothing is guaranteed
+    // to arrive afterwards, so waiting for a timeline.updated frame would
+    // leave this view stale indefinitely.
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-1")],
+      "/cases/7/timeline/windows": [timelineWindows("2026-09-01T00:05"), timelineWindows("2026-09-01T00:06")],
+      "/cases/7/charts": [page([])],
+      "/cases/7/activity-windows": [page([])],
+    }, [resetFrame(12)]);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/timeline" navigate={vi.fn()}/>);
+
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBeGreaterThan(1));
+  });
+
+  it("leaves a pinned snapshot alone even when the stream resets", async () => {
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-9")],
+      "/cases/7/analyses/55555555-5555-4555-8555-555555555555": [{ analysis_id: "55555555-5555-4555-8555-555555555555", case_id: 7, status: "completed", created_at: "2026-09-01T00:00:00Z" }],
+      "/cases/7/timeline/windows": [timelineWindows("2026-09-01T00:05"), timelineWindows("2026-09-01T00:06")],
+      "/cases/7/charts": [page([])],
+      "/cases/7/activity-windows": [page([])],
+    }, [resetFrame(12)]);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/timeline" search="?analysis=55555555-5555-4555-8555-555555555555" navigate={vi.fn()}/>);
+
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBe(1));
+    expect(harness.calls.filter(url => url.includes("/live/stream"))).toHaveLength(0);
+  });
+
+  it("holds a pinned snapshot while live analysis keeps arriving", async () => {
+    // The two halves of the roadmap claim, asserted together: the latest
+    // view converges on new analysis, and a deliberately pinned one does
+    // not move while that is happening.
+    const harness = respondLive({
+      "/cases/7/summary": [summary("analysis-9")],
+      "/cases/7/analyses/55555555-5555-4555-8555-555555555555": [{ analysis_id: "55555555-5555-4555-8555-555555555555", case_id: 7, status: "completed", created_at: "2026-09-01T00:00:00Z" }],
+      "/cases/7/timeline/windows": [timelineWindows("PINNED-WINDOW"), timelineWindows("NEWER-WINDOW"), timelineWindows("NEWEST-WINDOW")],
+      "/cases/7/charts": [page([])],
+      "/cases/7/activity-windows": [page([])],
+    }, [timelineFrame(81, "analysis-live-1"), timelineFrame(82, "analysis-live-2"), resetFrame(83)]);
+
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/timeline" search="?analysis=55555555-5555-4555-8555-555555555555" navigate={vi.fn()}/>);
+
+    await waitFor(() => expect(harness.count("/cases/7/timeline/windows")).toBe(1));
+    // Three live signals, including a reset, and the pinned view is
+    // untouched - no stream is even opened while a snapshot is pinned.
+    await new Promise(resolve => setTimeout(resolve, 120));
+    expect(harness.count("/cases/7/timeline/windows")).toBe(1);
+    expect(harness.calls.filter(url => url.includes("/live/stream"))).toHaveLength(0);
+    // The pinned analysis is the one that was requested, every time.
+    expect(harness.calls.filter(url => url.includes("/timeline/windows"))
+      .every(url => url.includes("analysis_id=55555555-5555-4555-8555-555555555555"))).toBe(true);
   });
 });
