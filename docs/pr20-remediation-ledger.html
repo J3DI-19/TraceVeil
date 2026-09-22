@@ -1,0 +1,437 @@
+<title>PR 20 Remediation Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground: #f2f5f8;
+    --surface: #ffffff;
+    --surface-sunk: #eaeff4;
+    --ink: #0f1f2e;
+    --muted: #5c7386;
+    --faint: #8397a8;
+    --rule: #d7e1e9;
+    --rule-strong: #b9c9d6;
+    --accent: #166b86;
+    --accent-soft: #e2eff4;
+    --sage: #4f7a60;
+    --sage-soft: #e4eee7;
+    --amber: #97592c;
+    --amber-soft: #f6e9de;
+
+    --step: 1.5rem;
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a1521;
+      --surface: #0f1e2c;
+      --surface-sunk: #0c1926;
+      --ink: #dae7f3;
+      --muted: #8ba3b8;
+      --faint: #6b8299;
+      --rule: #1d3044;
+      --rule-strong: #2b4459;
+      --accent: #5bc4e6;
+      --accent-soft: #102c38;
+      --sage: #8fbb9b;
+      --sage-soft: #13291c;
+      --amber: #d99a5c;
+      --amber-soft: #2e1f10;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a1521;
+    --surface: #0f1e2c;
+    --surface-sunk: #0c1926;
+    --ink: #dae7f3;
+    --muted: #8ba3b8;
+    --faint: #6b8299;
+    --rule: #1d3044;
+    --rule-strong: #2b4459;
+    --accent: #5bc4e6;
+    --accent-soft: #102c38;
+    --sage: #8fbb9b;
+    --sage-soft: #13291c;
+    --amber: #d99a5c;
+    --amber-soft: #2e1f10;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding-inline: clamp(1rem, 4vw, 3.5rem);
+    padding-block: clamp(2rem, 6vw, 4.5rem);
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 1rem/1.6 "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(2rem, 5vw, 3.25rem); }
+
+  /* ---------- Masthead ---------- */
+  .masthead { display: flex; flex-direction: column; gap: 1rem; }
+  .eyebrow {
+    font: 500 0.7rem/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+  }
+  .masthead h1 {
+    margin: 0; text-wrap: balance;
+    font: 700 clamp(2rem, 5.5vw, 3rem)/1.08 "Bitter", Georgia, serif;
+    letter-spacing: -0.015em;
+  }
+  .standfirst { margin: 0; max-width: var(--measure); color: var(--muted); font-size: 1.05rem; }
+  .provenance {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem;
+    padding-top: 1rem; border-top: 1px solid var(--rule);
+    font: 400 0.78rem/1.5 "JetBrains Mono", ui-monospace, monospace; color: var(--faint);
+  }
+  .provenance b { color: var(--muted); font-weight: 500; }
+
+  /* ---------- Tally ---------- */
+  .tally { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .tally > div { background: var(--surface); padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.3rem; }
+  .tally dt { font: 500 0.68rem/1.3 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .tally dd { margin: 0; font: 700 1.9rem/1 "Bitter", Georgia, serif; font-variant-numeric: tabular-nums; }
+  .tally small { color: var(--muted); font-size: 0.82rem; }
+  .tally [data-tone="amber"] dd { color: var(--amber); }
+  .tally [data-tone="sage"] dd { color: var(--sage); }
+
+  /* ---------- Sections ---------- */
+  section { display: flex; flex-direction: column; gap: 0; }
+  .section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.9rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--rule-strong); }
+  .section-head h2 { margin: 0; font: 600 1.35rem/1.2 "Bitter", Georgia, serif; }
+  .section-head .count { font: 500 0.75rem/1 "JetBrains Mono", ui-monospace, monospace; color: var(--muted); }
+
+  /* ---------- Ledger rows ---------- */
+  .row {
+    display: grid; gap: 0.35rem 1.75rem; align-items: start;
+    padding: 1.15rem 1.15rem 1.15rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    border-left: 3px solid transparent;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .row[data-verdict="partial"] { border-left-color: var(--amber); background: var(--surface); }
+  .row[data-verdict="clear"] { border-left-color: var(--rule-strong); }
+  .row[data-verdict="extra"] { border-left-color: var(--accent); background: var(--surface); }
+
+  @media (min-width: 880px) {
+    .row { grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1fr) minmax(0, 1.15fr); }
+    .row--clear { grid-template-columns: minmax(230px, 0.85fr) minmax(0, 2.15fr); }
+  }
+
+  .row__id { display: flex; flex-direction: column; gap: 0.3rem; }
+  .row__id code {
+    font: 700 0.8rem/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.04em; color: var(--accent);
+  }
+  .row__id h3 { margin: 0; font: 600 1rem/1.3 "Source Sans 3", sans-serif; text-wrap: balance; }
+
+  .chip {
+    align-self: flex-start; margin-top: 0.15rem;
+    padding: 0.16rem 0.5rem;
+    font: 500 0.65rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .chip--partial { color: var(--amber); background: var(--amber-soft); }
+  .chip--clear { color: var(--muted); background: var(--surface-sunk); }
+  .chip--extra { color: var(--accent); background: var(--accent-soft); }
+
+  .cell { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+  .cell-label {
+    font: 500 0.63rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint);
+  }
+  .cell p { margin: 0; font-size: 0.92rem; }
+  .cell p + p { margin-top: 0.5rem; }
+  .cell--done p { color: var(--ink); }
+  .cell--asked p { color: var(--muted); }
+  .cell--none { color: var(--faint); font-style: italic; font-size: 0.9rem; }
+
+  .cell code, .inline-code {
+    font: 400 0.84em/1.4 "JetBrains Mono", ui-monospace, monospace;
+    background: var(--surface-sunk); padding: 0.05em 0.3em;
+    overflow-wrap: anywhere;
+  }
+  .row[data-verdict="partial"] .cell code,
+  .row[data-verdict="extra"] .cell code { background: var(--ground); }
+
+  .evidence {
+    display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-top: 0.55rem;
+    font: 400 0.72rem/1.5 "JetBrains Mono", ui-monospace, monospace; color: var(--faint);
+  }
+  .evidence span::before { content: "› "; color: var(--accent); }
+
+  /* ---------- Caveat ---------- */
+  .caveat {
+    padding: 1.1rem 1.25rem; background: var(--surface);
+    border: 1px solid var(--rule); border-left: 3px solid var(--amber);
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .caveat h2 { margin: 0; font: 600 1rem/1.3 "Bitter", Georgia, serif; }
+  .caveat p { margin: 0; max-width: var(--measure); font-size: 0.92rem; color: var(--muted); }
+
+  footer {
+    padding-top: 1.25rem; border-top: 1px solid var(--rule);
+    font: 400 0.78rem/1.6 "JetBrains Mono", ui-monospace, monospace; color: var(--faint);
+    display: flex; flex-wrap: wrap; gap: 0.3rem 1.5rem;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <span class="eyebrow">Traceveil · Audit response</span>
+    <h1>PR 20 Remediation Ledger</h1>
+    <p class="standfirst">
+      Every Step 7 and Step 11 roadmap item from the 15 September audit, the follow-up
+      the audit required, and what was actually built against it.
+    </p>
+    <div class="provenance">
+      <span><b>Audited commit</b> cc3b60e</span>
+      <span><b>Pull request</b> J3DI-19/TraceVeil #20</span>
+      <span><b>Prepared for</b> Ayra Jha</span>
+    </div>
+  </header>
+
+  <dl class="tally">
+    <div>
+      <dt>Items audited</dt>
+      <dd>20</dd>
+      <small>Step 7 and Step 11, ten each</small>
+    </div>
+    <div data-tone="sage">
+      <dt>Already complete</dt>
+      <dd>14</dd>
+      <small>Accepted by the audit, untouched</small>
+    </div>
+    <div data-tone="amber">
+      <dt>Ruled partial</dt>
+      <dd>6</dd>
+      <small>All six now implemented</small>
+    </div>
+    <div>
+      <dt>Tests after</dt>
+      <dd>331</dd>
+      <small>222 backend, 109 frontend</small>
+    </div>
+  </dl>
+
+  <!-- ================= STEP 7 ================= -->
+  <section>
+    <div class="section-head">
+      <h2>Step 7 — Real-Time Event Delivery</h2>
+      <span class="count">7 complete · 3 partial</span>
+    </div>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.1</code><h3>Add backend real-time event delivery</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Replayable SSE endpoint and durable stream log exist. No follow-up required; unchanged by this PR.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.2</code><h3>Select SSE or WebSocket transport</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">SSE documented and appropriate for one-way delivery. No follow-up required; unchanged by this PR.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.3</code><h3>Stream accepted live events to the frontend</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none"><code>event.accepted</code> is persisted and rendered in Live Monitor. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.4</code><h3>Stream generated alerts to the frontend</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none"><code>alert.created</code> is emitted once per persisted alert. No follow-up required.</p></div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>7.5</code><h3>Update device status in near real time</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Implement stale and offline transitions. A silent device could stay visually Online; staleness was computed only when queried, the page never refetched device state, and <code>device_state</code> used the global threshold rather than the session's own <code>stale_after_seconds</code>. A retained link-offline heartbeat could read as Online.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>Three backend-authored states replace the single boolean: <code>online</code>, <code>stale</code>, <code>offline</code>. The threshold is now resolved from <code>live_sessions</code>, so two sessions that declared different thresholds transition at different times.</p>
+        <p>A reported link loss is checked <em>first</em> and renders Offline regardless of timestamp recency — the exact misreading the audit named. With nothing being reported, the SSE heartbeat drives a device refetch, so the transition stays a backend decision the browser only displays. The legacy <code>stale</code> flag is retained and true for both non-online states.</p>
+        <div class="evidence">
+          <span>5 backend tests</span><span>2 frontend tests</span><span>threshold, link loss, recovery, invariance</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>7.6</code><h3>Update timelines when live events arrive</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Make the case timeline live or narrow the roadmap claim. Only Live Monitor refetched on <code>timeline.updated</code>; the case Timeline route stayed request-driven. Rapid signals could also start overlapping refetches, letting an older response overwrite a newer one.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>Made live, not narrowed. A shared <code>useLiveInvalidation</code> hook now serves both Live Monitor and the case workspace, so the parsing exists once rather than being duplicated per page.</p>
+        <p>A pinned historical snapshot opens no stream at all and is never replaced. When a record drawer is open the view is not swapped underneath the investigator — a “New live results available” action is offered instead. The existing request-id guard aborts the previous load and discards any superseded response, so out-of-order arrivals cannot regress the displayed analysis.</p>
+        <div class="evidence"><span>3 frontend tests</span><span>refresh, pinned snapshot, open-drawer offer</span></div>
+      </div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.7</code><h3>Update dashboard metrics from validated data</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none"><code>metrics.updated</code> causes a backend metrics refetch. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.8</code><h3>Handle temporary disconnections</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">The client retries transient failures with backoff. No follow-up required.</p></div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>7.9</code><h3>Add safe reconnect behaviour</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Add gap recovery and cursor continuity. A cursor older than the earliest retained message resumed silently, so the feed could omit data with no signal. Pause also rebuilt the data source — <code>paused</code> was an effect dependency — resetting its cursor and replaying retained history.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>A versioned <code>stream.reset</code> frame is emitted before any later message when <code>Last-Event-ID</code> predates the retained window, carrying <code>reason: cursor_expired</code>, the oldest retained id, a resume cursor and the list of resources to refetch. The browser discards its display buffers and rebuilds devices, metrics, timeline, events and alerts from the authoritative APIs.</p>
+        <p>The check reads the global low-water mark, since <code>stream_id</code> is one sequence pruned globally. It is deliberately conservative: pruning that removed only other cases' messages still reports a gap. One unnecessary refetch is the right trade against ever missing a real one.</p>
+        <p><code>paused</code> moved into a ref, so one stream is held for the life of a case and session. Pausing the display no longer tears down the connection or resets the cursor — so no replay, and no eventual duplicates once the bounded seen-id cache rolls over.</p>
+        <div class="evidence"><span>6 backend tests</span><span>2 frontend tests</span><span>retained, pruned, cross-case, pause continuity</span></div>
+      </div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>7.10</code><h3>Delivery does not alter forensic calculations</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Read and replay invariance covered by real HTTP and persistence tests. No follow-up required — and newly re-asserted across reset and repeated status reads.</p></div>
+    </article>
+  </section>
+
+  <!-- ================= STEP 11 ================= -->
+  <section>
+    <div class="section-head">
+      <h2>Step 11 — Alerts, Email, Reports and Automation</h2>
+      <span class="count">7 complete · 3 partial</span>
+    </div>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.1</code><h3>Add SMTP setup</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict &amp; response</span><p class="cell--none">Configuration, TLS, login, allow-listing and the send path exist. The audit's <em>optional</em> real-SMTP smoke test was <strong>not</strong> added — delivery is still verified against a monkeypatched transport, as elsewhere in the suite.</p></div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>11.2</code><h3>Generate alert email drafts</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Generate grounded draft content and connect the frontend. The endpoint stored caller-written text against an alert hash without generating anything from the alert, <code>phase3Api</code> exposed no method, and no connected page called it — so the feature was inaccessible and could produce a draft unrelated to its anchor.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>Only a recipient is required now. The backend composes the subject and body from the persisted alert — id, rule, title, severity, risk score, trigger time, finding and a bounded evidence list — with no model involved. A <code>notification-preview</code> endpoint returns that same text before any record is written.</p>
+        <p>Cross-case and unknown identifiers are refused with 404, since an artifact is resolved inside its own case's latest analysis run. A shared notification panel in the alert drawer carries create, edit, approve and send; Live Monitor's alert cards deep-link straight into it.</p>
+        <div class="evidence"><span>6 backend tests</span><span>6 frontend tests</span><span>every number in a composed body must trace to the artifact</span></div>
+      </div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>11.3</code><h3>Support drafts for live detected incidents</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Add incident and Live Monitor workflows. The backend could anchor a caller-written draft to an incident, but there was no frontend method or interface, no default incident-based content, and no path from a newly detected live incident to its draft.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>The same artifact-draft service serves incidents. The composed body reproduces the incident's deterministic summary <em>verbatim</em> rather than paraphrasing it, alongside severity, maximum risk, observed window and the finding, alert, entity and evidence counts.</p>
+        <p>The identical panel appears in the incident drawer; approval stays pinned to the incident's content hash, so re-analysis that changes it revokes approval. Drafts are listable by artifact, so one awaiting approval is reopened after a refresh rather than duplicated.</p>
+        <div class="evidence"><span>4 backend tests</span><span>no report and no PDF required</span></div>
+      </div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.4</code><h3>Require investigator approval before sending</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Unapproved and changed drafts cannot be sent. No follow-up required; the gate now also covers artifact drafts.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.5</code><h3>Add report export</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Deterministic PDF generation and export exist. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.6</code><h3>Auto-run analysis after batch upload</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Analysis runs automatically once validated evidence is committed. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.7</code><h3>Automatically process validated live events</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">The worker normalizes, persists and analyses accepted telemetry. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.8</code><h3>Auto-group related alerts</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Deterministic incident construction groups related findings and alerts. No follow-up required.</p></div>
+    </article>
+
+    <article class="row row--clear" data-verdict="clear">
+      <div class="row__id"><code>11.9</code><h3>Deterministic summaries before AI narration</h3><span class="chip chip--clear">Complete</span></div>
+      <div class="cell"><span class="cell-label">Audit verdict</span><p class="cell--none">Summaries are computed before the optional AI narrative and exported first. No follow-up required — the summary was additionally promoted into the incidents table and the top of the incident drawer, where it is actually read.</p></div>
+    </article>
+
+    <article class="row" data-verdict="partial">
+      <div class="row__id"><code>11.10</code><h3>Preserve alert and notification audit history</h3><span class="chip chip--partial">Was partial</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>Complete lifecycle auditing and workflow-status synchronisation. Creation, approval and completed SMTP outcomes were recorded, but draft edits and rejected sends were not, and a sent alert notification never updated <code>alert_workflow.notification_status</code> — so the alert list could keep reporting <code>not_requested</code> after delivery.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p><code>email_draft.updated</code> records which fields changed, both content hashes and whether an approval was revoked — the field <em>names</em>, never the new values, so an edit is reconstructible without republishing the message.</p>
+        <p><code>email.rejected</code> records a refused send or approval with a bounded code from a closed vocabulary (<code>approved_email_required</code>, <code>email_content_changed</code>, <code>smtp_not_configured</code>, <code>recipient_domain_not_allowed</code>, <code>artifact_not_found</code> and three more) plus the request id. A raw exception string can never reach the audit details.</p>
+        <p>A terminal outcome is mirrored onto the alert — <code>delivered</code> or <code>delivery_failed</code> — in the same transaction as the delivery attempt and the draft's terminal state, so the two views cannot disagree. Incident notifications deliberately leave individual alert rows alone rather than overstating what was sent.</p>
+        <div class="evidence"><span>8 backend tests</span><span>audit trail asserted to contain no recipient or message body</span></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= HARDENING ================= -->
+  <section>
+    <div class="section-head">
+      <h2>Required hardening before merge</h2>
+      <span class="count">Not a roadmap checkmark</span>
+    </div>
+
+    <article class="row" data-verdict="extra">
+      <div class="row__id"><code>H.1</code><h3>Legacy email draft migration test</h3><span class="chip chip--extra">Added</span></div>
+      <div class="cell cell--asked">
+        <span class="cell-label">Audit required</span>
+        <p>The table rebuild in <code>SQLiteRepository</code> was uncovered. It changes <code>report_id</code> from required to nullable and must preserve existing approvals and delivery records. The audit asked for an explicit transaction, foreign-key restoration in a <code>finally</code> path, <code>PRAGMA foreign_key_check</code>, idempotency across two <code>initialize()</code> calls, and proof that no temporary table survives success or failure.</p>
+      </div>
+      <div class="cell cell--done">
+        <span class="cell-label">What was done</span>
+        <p>The copy, drop and rename now run inside one explicit transaction. <code>executescript</code> was removed deliberately — it commits any open transaction before running, which would have defeated exactly the atomicity being asked for. <code>PRAGMA foreign_key_check</code> runs before the commit and enforcement is restored in a <code>finally</code> path.</p>
+        <p>Legacy rows additionally recover their <code>case_id</code> from the report they belong to, so an old draft still appears in its case's list instead of vanishing from the UI.</p>
+        <div class="evidence"><span>8 dedicated tests</span><span>includes a forced mid-rebuild failure that must roll back with approvals intact</span></div>
+      </div>
+    </article>
+  </section>
+
+  <div class="caveat">
+    <h2>One thing to watch on merge</h2>
+    <p>
+      The backend suite now runs in roughly 430&nbsp;seconds locally, because these tests drive
+      real authenticated telemetry through the worker rather than seeding fixtures. The CI pytest
+      deadline was raised to 1200&nbsp;s and the job budget to 25&nbsp;minutes. If your runners are
+      slower than the local machine, watch that job on its first run.
+    </p>
+  </div>
+
+  <footer>
+    <span>Backend 222 passed · clean exit · no leaked worker threads</span>
+    <span>Frontend 109 passed · type-check · production build</span>
+    <span>OpenAPI contract check passed</span>
+  </footer>
+
+</div>
