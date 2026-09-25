@@ -1,17 +1,17 @@
 # COMPLETION REPORT
 **Traceveil roadmap reconciliation, delivery status, and contribution record**
 
-**Prepared:** 2026-09-13
+**Prepared:** 2026-09-25
 
-**Source set:** Roadmap, frontend completion audit, batch and Steps 9–10 practical-usability checklists, Step 9 and Step 10 verification records, contribution record, and verified repository history through `6428570`.
+**Source set:** Roadmap, frontend completion audit, batch and Steps 9–11 practical-usability and verification records, contribution record, and verified repository history through `7ef17c6`.
 
-**Repository snapshot:** `6428570` on branch `main` following the merge of PR #17.
+**Repository snapshot:** `7ef17c6` on branch `main` following the merge of PR #28.
 
 ## Executive Summary
 
 **Project Delivery Status & Trajectory**
 
-Traceveil now provides an integrated persisted investigation platform spanning evidence intake, deterministic analysis, safe visual exploration, and grounded local-AI assistance. The completed **batch-investigation workflow** and **Live IoT Integration pipeline** are joined by the completed Step 9 visualization engine and Step 10 investigation chat.
+Traceveil now provides an integrated investigation platform spanning evidence intake, deterministic analysis, safe visual exploration, grounded local-AI assistance, real-time browser delivery, and approval-gated reporting and notification automation. The software roadmap is complete through Step 11; the remaining Step 12 items require physical hardware acceptance.
 
 **Key Recent Achievements:**
 - **Batch Processing Attained:** The system securely ingests, validates, and normalizes evidence into canonical events. The deterministic analysis engine is actively generating bounded risk scores, timelines, and analytical projections (Steps 3, 4, 6, and 8).
@@ -39,17 +39,17 @@ Traceveil now provides an integrated persisted investigation platform spanning e
   unified readable selectors, a refined evidence control, and a persistent
   visual workspace. Investigators can keep multiple response visuals open,
   reorder them by dragging, close them individually, and open a focused preview.
-- **Mainline Integration Completed:** PR #17 merged the full nine-commit Step
-  9–10 delivery series from `J3DI` into `main` after all required GitHub checks
-  passed.
+- **Real-Time Delivery Completed:** Step 7 now provides SSE delivery, replay and reconnect handling, authoritative recovery, scope-isolated buffers, backend-authored device state, and response-order guards without changing forensic calculations.
+- **Reporting and Notification Automation Completed:** Step 11 now provides deterministic incident summaries, report export, grounded alert and incident drafts, investigator approval, SMTP delivery controls, automatic processing and grouping, and atomic audit history.
+- **Mainline Integration Completed:** PR #28 merged the verified Steps 7 and 11 delivery into `main` at `7ef17c6` after all required GitHub checks passed.
 
 **Overall Progress:**
-The reconciled roadmap contains **176 planned sub-items**, of which **145 are implemented and verified**, for a formal completion rate of **82.4%**. Steps 9 and 10 remain complete, including their recorded usability, runtime, performance, and visualization refinements owned by J3DI. Subsequent post-completion work hardened the assistant workspace and visual interactions without expanding formal roadmap scope. The **31 remaining items** are confined to real-time frontend delivery (Step 7), reporting automation (Step 11), and the physical demonstration (Step 12).
+The reconciled roadmap contains **176 planned sub-items**, of which **165 are implemented and verified**, for a formal completion rate of **93.8%**. Steps 7 and 11 are complete in addition to the previously completed software areas. The **11 remaining items** are confined to the physical demonstration and hardware acceptance in Step 12.
 
 ```mermaid
 pie title Overall Roadmap Completion
-    "Complete (145)" : 145
-    "Pending (31)" : 31
+    "Complete (165)" : 165
+    "Pending (11)" : 11
 ```
 
 ---
@@ -168,21 +168,21 @@ pie title Step 6 Progress
 - [x] Support analysis of both batch and live events
 - [x] Trigger alerts from qualifying live events
 
-### 7. Real-Time Event Delivery (Pending)
+### 7. Real-Time Event Delivery (Complete)
 ```mermaid
 pie title Step 7 Progress
-    "Pending" : 10
+    "Complete" : 10
 ```
-- [ ] Add backend real-time event delivery
-- [ ] Select SSE or WebSocket transport based on implementation needs
-- [ ] Stream accepted live events to the frontend
-- [ ] Stream generated alerts to the frontend
-- [ ] Update device status in near real time
-- [ ] Update timelines when relevant live events arrive
-- [ ] Update dashboard metrics from validated backend data
-- [ ] Handle temporary frontend/backend disconnections
-- [ ] Add safe reconnect behaviour
-- [ ] Ensure real-time delivery does not alter forensic calculations
+- [x] Add backend real-time event delivery
+- [x] Select SSE or WebSocket transport based on implementation needs
+- [x] Stream accepted live events to the frontend
+- [x] Stream generated alerts to the frontend
+- [x] Update device status in near real time
+- [x] Update timelines when relevant live events arrive
+- [x] Update dashboard metrics from validated backend data
+- [x] Handle temporary frontend/backend disconnections
+- [x] Add safe reconnect behaviour
+- [x] Ensure real-time delivery does not alter forensic calculations
 
 ### 8. Dashboard Results and Investigation APIs (Complete)
 ```mermaid
@@ -250,21 +250,21 @@ pie title Step 10 Progress
 - [x] Bound recent conversation context and model output for faster responses
 - [x] Fix durable history restoration, scrolling, cancellation, retry, and per-message visual state
 
-### 11. Alerts, Email, Reports and Automation (Pending)
+### 11. Alerts, Email, Reports and Automation (Complete)
 ```mermaid
 pie title Step 11 Progress
-    "Pending" : 10
+    "Complete" : 10
 ```
-- [ ] Add SMTP setup
-- [ ] Generate alert email drafts
-- [ ] Support drafts for live detected incidents
-- [ ] Require investigator approval before sending
-- [ ] Add report export
-- [ ] Auto-run analysis after batch upload
-- [ ] Automatically process validated incoming live events
-- [ ] Auto-group related alerts
-- [ ] Create deterministic incident summaries before AI narration
-- [ ] Preserve alert and notification audit history
+- [x] Add SMTP setup
+- [x] Generate alert email drafts
+- [x] Support drafts for live detected incidents
+- [x] Require investigator approval before sending
+- [x] Add report export
+- [x] Auto-run analysis after batch upload
+- [x] Automatically process validated incoming live events
+- [x] Auto-group related alerts
+- [x] Create deterministic incident summaries before AI narration
+- [x] Preserve alert and notification audit history
 
 ### 12. Physical Live Demonstration (Pending)
 ```mermaid
@@ -321,20 +321,20 @@ compact case rows, and the Case Overview dataset panel.
 
 ## Team Ownership & Contributions
 
-The repository contains 67 commits at the recorded `main` snapshot.
+The repository contains 73 commits at the recorded `main` snapshot.
 
-**J3DI (Project Lead)** - *55 verified commits across the J3DI and J3DI-19 author identities*
+**J3DI (Project Lead)** - *60 verified commits across the J3DI and J3DI-19 author identities*
 - **Role:** Documentation, planning, merging, review, and integration oversight.
 - **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, local-AI runtime controls, and the compact interactive assistant workspace.
-- **Latest Delivery:** `7e56850`, `9e03217`, `4a545a7`, `0ed5a36`, `a1962a2`, `96320b3`, `3213ca1`, and `254e84f`, completing Steps 9 and 10 and their reliability, performance, visual-selection, persistent-canvas, and UI refinements. PR #17 merged the complete nine-commit series into `main` as `6428570`.
+- **Latest Delivery:** `a94a0fa` removed the redundant settings workspace and simplified the connected application shell. J3DI also merged the refreshed documentation and PR #28, bringing the completed Steps 7 and 11 work into `main` as `7ef17c6`.
 
 **Aarya (Contributor)** - *10 Commits*
 - **Role:** Backend and Analysis Engineering
 - **Key Deliverables:** Step 3 (Evidence Validation), Step 4 (Canonical Normalization), Step 6 (Deterministic Analytics), and Step 8 (Investigation APIs & Workflows).
 
-**Ayra (Contributor)** - *2 verified commits in the repository history*
+**Ayra (Contributor)** - *3 verified commits in the repository history*
 - **Role:** IoT & Live Integration Engineering
-- **Key Deliverables:** Step 5 (Live IoT Integration), including authenticated HTTP intake, sessions, fixes, and CI/CD corrections.
+- **Key Deliverables:** Step 5 live IoT integration; Step 7 real-time SSE delivery and safe reconnect recovery; and Step 11 alert, email, report, automation, and notification-audit workflows.
 
 ## Verification and Acceptance Record
 - **Frontend tests:** Passing
@@ -344,9 +344,10 @@ The repository contains 67 commits at the recorded `main` snapshot.
 - **OpenAPI contract and generated frontend types:** Synchronized and passing
 - **Batch Usability Showcase:** Passed integration and usability gate across Steps 1, 2, 3, 4, 6, and 8.
 - **Steps 9–10 regression pass:** Full backend suite passed; full frontend suite passed (92 tests across 15 files); TypeScript lint and the production Vite build passed.
-- **Mainline CI acceptance:** PR #17 passed backend clean-exit, frontend contract/tests, Step 5 backend, bridge broker, native C++, and ESP32 compilation checks before merge.
+- **Steps 7 and 11 completion pass:** The full backend suite passed 243 tests with a clean exit; all 143 frontend tests, TypeScript checking, the production build, and OpenAPI contract verification passed.
+- **Mainline CI acceptance:** PR #28 passed backend clean-exit, frontend contract/tests, Step 5 backend, bridge broker, native C++, and ESP32 compilation checks before merge.
 - **Live AI/visual acceptance:** `qwen35-uncensored:latest` returned grounded responses while deterministic routing selected snapshot-pinned Fridge severity and top-entity views; persisted top-finding and top-entity datasets resolved successfully.
 - **Dataset acceptance:** HAI ICS (300 wide telemetry rows), IoT-23 (1,000 flows), TON_IoT refrigerator (1,000 readings), CASAS Milan (1,000 sensor events), and simulation samples are cataloged with checksums and device descriptions.
 
 ## Closeout Note
-This report is the consolidated handoff record through 13 September 2026 and the `main` merge commit `6428570`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, and compact interactive assistant workspace are embedded in the mainline codebase. Remaining roadmap work is explicitly retained only under Steps 7, 11, and 12 rather than being inferred as complete.
+This report is the consolidated handoff record through 25 September 2026 and the `main` merge commit `7ef17c6`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, real-time browser delivery, and reporting and notification automation are embedded in the mainline codebase. Remaining roadmap work is explicitly confined to the 11 physical demonstration and hardware-acceptance items in Step 12.

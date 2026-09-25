@@ -1,19 +1,19 @@
 # Team Ownership & Contributions
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-25
 
-**Repository snapshot:** `6428570` on branch `main`
+**Repository snapshot:** `7ef17c6` on branch `main`
 
-**Commit count:** 67
+**Commit count:** 73
 
 This record combines author names that use the same verified email identity. In
 particular, `J3DI` and `J3DI-19` are reported together as J3DI.
 
 ```mermaid
 pie title Commit Authorship at the Recorded Snapshot
-    "J3DI" : 55
+    "J3DI" : 60
     "Aarya" : 10
-    "Ayra" : 2
+    "Ayra" : 3
 ```
 
 ## J3DI
@@ -22,7 +22,7 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 01, 02, 09, 10, plus cross-cutting integration and delivery
 
-**Verified commits:** 55
+**Verified commits:** 60
 
 ### Allocated project-wide ownership
 
@@ -73,9 +73,25 @@ pie title Commit Authorship at the Recorded Snapshot
 - **Mainline delivery:** Opened and merged PR #17, bringing all nine Step 9–10
   implementation, documentation, reliability, performance, and UI commits from
   `J3DI` into `main` after the required CI checks passed.
+- **Application-shell cleanup:** Removed the redundant settings workspace and
+  simplified the connected routing and navigation in `a94a0fa`.
+- **Steps 7 and 11 integration:** Reviewed and merged PR #28, bringing the
+  completed real-time delivery, reconnect recovery, reporting, notification,
+  automation, and audit workflows into `main` at `7ef17c6`.
 
 ### Most recent verified commits
 
+- `7ef17c6` (2026-09-23) — **Merge PR #28.** Integrated the completed Steps 7
+  and 11 implementation and verification records into `main`.
+- `7ef1aac` (2026-09-13) — **Merge PR #19.** Integrated the application-shell
+  cleanup into `main`.
+- `a94a0fa` (2026-09-13) — **Remove redundant settings workspace.** Simplified
+  routing, navigation, connected case-workspace entry points, and associated
+  styling and tests.
+- `103b664` (2026-09-13) — **Merge PR #18.** Integrated the refreshed completion
+  and contribution records into `main`.
+- `c2f9479` (2026-09-13) — **Refresh contribution and completion reports.**
+  Reconciled the reports with the Step 9–10 delivery snapshot.
 - `254e84f` (2026-09-12) — **Polish assistant visuals and controls.** Added
   focused visual previews, clearer chart and visual-panel presentation, improved
   drag/zoom/close controls, a refined evidence checkbox, and one consolidated,
@@ -158,22 +174,31 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 05, 07, 11, 12
 
-**Verified commits:** 2
+**Verified commits:** 3
 
 ### Verified contribution record
 
 - **Live IoT integration:** Contributed authenticated HTTP intake, session and
   telemetry integration work, follow-up fixes, and CI/CD corrections for Step 5.
+- **Real-time delivery:** Completed SSE delivery, replay and reconnect behavior,
+  backend-authored device state, authoritative recovery, scope isolation, and
+  response-order protection for Step 7.
+- **Alerts and reporting automation:** Completed deterministic incident summaries,
+  report export, grounded alert and incident drafts, investigator approval,
+  SMTP delivery controls, automatic processing and grouping, and atomic audit
+  history for Step 11.
 
 ### Major commits
 
+- `971829c` (2026-09-22) — Complete Steps 7 and 11, including final reconnect
+  recovery and abort-aware timeline supersession handling
 - `3118068` (2026-09-06) — Step 5 contribution
 - `8b79d0a` (2026-09-02) — Step 5 foundation
 
 ## Attribution note
 
-Counts above come from `git shortlog -sne main` at `6428570`. The J3DI total
-combines 42 commits authored as `J3DI` and 13 authored as `J3DI-19`, which share
+Counts above come from `git shortlog -sne main` at `7ef17c6`. The J3DI total
+combines 44 commits authored as `J3DI` and 16 authored as `J3DI-19`, which share
 the verified `j3di.legend@gmail.com` identity. Feature ownership
 is based on the committed diff and the agreed assigned steps; a checked roadmap
 item records delivery ownership and does not erase earlier foundational work by
