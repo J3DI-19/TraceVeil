@@ -1,6 +1,6 @@
 # Traceveil Roadmap
 
-> Current software status (16 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state, scope-isolated reconnect recovery and order-guarded timeline refresh, and approval-gated alert, notification and reporting automation with atomic terminal auditing are implemented end to end through the connected interface. The 11 remaining items are confined to physical hardware acceptance.
+> Current software status (25 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state, scope-isolated reconnect recovery and order-guarded timeline refresh, and approval-gated alert, notification and reporting automation with atomic terminal auditing are implemented end to end through the connected interface. The 11 remaining items are confined to physical hardware acceptance. This status is reconciled through merge commit `7ef17c6` (PR #28).
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
