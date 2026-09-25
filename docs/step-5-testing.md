@@ -116,6 +116,10 @@ and immediately publish `tv/dev/esp32-lab-01/ack {"sequence": 1}`.
 
 ## Ladder 3 - Physical ESP32 on the bench
 
+For a first physical Step 12 demonstration, follow the one-sensor
+[DHT22 guide](../hardware/esp32/traceveil_dht22/README.md). The procedure
+below is for the original multi-device sketch and its advanced scenarios.
+
 Prereqs: ESP32-WROOM-32, DHT22 on GPIO 4, HC-SR501 on GPIO 27, relay
 on GPIO 26, ISOLATED sense tap on GPIO 25 (input; feed from a
 high-impedance divider or opto-coupler), momentary button between

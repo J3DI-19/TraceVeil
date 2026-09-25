@@ -99,7 +99,7 @@ Exact hardware and communication protocols remain implementation decisions.
 
 ## Project status
 
-Phase 3 software is implemented: connected batch investigation views, authenticated live HTTP collection, durable receipts and device state, bounded micro-batching, replayable SSE, optional grounded Ollama assistance, deterministic PDF reports, approval-gated SMTP delivery, audit history, and a controlled telemetry simulator. Physical hardware assembly is optional and MQTT remains future work. See [the Phase 3 demonstration guide](docs/phase3-live-demo.md).
+Phase 3 software is implemented: connected batch investigation views, authenticated live HTTP collection, durable receipts and device state, bounded micro-batching, replayable SSE, optional grounded Ollama assistance, deterministic PDF reports, approval-gated SMTP delivery, audit history, and a controlled telemetry simulator. Physical hardware assembly is optional; the recommended one-sensor ESP32 sketch is in [hardware/esp32/traceveil_dht22](hardware/esp32/traceveil_dht22/README.md), while the original multi-device sketch remains available. See [the Phase 3 demonstration guide](docs/phase3-live-demo.md).
 
 The repository contains the React/Vite connected investigation interface, versioned FastAPI APIs, SQLite persistence and recovery, CASAS and TON_IoT telemetry adapters, the canonical normalization pipeline, deterministic analysis, and generated OpenAPI TypeScript DTOs. Production routes query persisted records; mock adapters remain explicit test/demo configuration only.
 

@@ -166,6 +166,12 @@ jobs:
           cp tests/step5/ci_config.h hardware/esp32/traceveil_node/config.h
           arduino-cli compile --fqbn esp32:esp32:esp32 \
             hardware/esp32/traceveil_node/traceveil_node.ino
+      - name: Compile recommended DHT22-only sketch
+        if: needs.changes.outputs.step5 == 'true'
+        run: |
+          cp tests/step5/ci_config_dht22.h hardware/esp32/traceveil_dht22/config.h
+          arduino-cli compile --fqbn esp32:esp32:esp32 \
+            hardware/esp32/traceveil_dht22/traceveil_dht22.ino
       - name: Compile in MQTT transport mode
         if: needs.changes.outputs.step5 == 'true'
         run: |
