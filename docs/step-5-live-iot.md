@@ -14,6 +14,10 @@ requirements are marked with their finding id (TV5-XX).
 
 ## Hardware selection
 
+For the simplest Step 12 physical demonstration, use the one-sensor DHT22
+sketch and wiring in [hardware/esp32/traceveil_dht22/README.md](../hardware/esp32/traceveil_dht22/README.md).
+The multi-device kit below remains the advanced Step 5 reference.
+
 | Item | Choice | Why |
 | --- | --- | --- |
 | Microcontroller | ESP32-WROOM-32 dev kit | Onboard Wi-Fi + TLS, dual core, mature Arduino core. |

@@ -1,0 +1,30 @@
+// Copy to config.h in this directory. Keep the real token and Wi-Fi password out of git.
+#pragma once
+
+#define TV_WIFI_SSID "your-2.4ghz-wifi"
+#define TV_WIFI_PSK "your-wifi-password"
+
+// Create a case and start an active live session for this source before booting.
+#define TV_CASE_ID 1
+#define TV_SOURCE_ID "esp32-lab-01"
+#define TV_DEVICE_ID "esp32-lab-01"
+#define TV_SOURCE_TOKEN "replace-with-the-token-in-LIVE_SOURCE_TOKENS"
+
+// HTTPS endpoint reachable from the ESP32, with a certificate for TV_HTTP_HOST.
+#define TV_HTTP_HOST "traceveil.lab"
+#define TV_HTTP_PORT 8443
+#define TV_HTTP_PATH "/api/v1/live/telemetry"
+static const char TV_HTTP_ROOT_CA_PEM[] = R"PEM(
+-----BEGIN CERTIFICATE-----
+REPLACE-WITH-LAB-ROOT-CA
+-----END CERTIFICATE-----
+)PEM";
+
+// This NTP server must be reachable from the ESP32 Wi-Fi network.
+#define TV_NTP_SERVER "pool.ntp.org"
+#define TV_NTP_MIN_EPOCH 1735689600UL
+#define TV_NTP_TIMEOUT_MS 30000UL
+
+#define TV_PIN_DHT 4
+#define TV_SAMPLE_INTERVAL_MS 3000UL
+#define TV_RETRY_INTERVAL_MS 5000UL
