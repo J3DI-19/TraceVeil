@@ -1,10 +1,14 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 import json
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -46,7 +50,7 @@ class Settings(BaseSettings):
     smtp_from_address: str | None = None
     smtp_allowed_recipient_domains: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=ENV_PATH, extra="ignore", case_sensitive=False)
 
     @field_validator("frontend_origins", mode="before")
     @classmethod

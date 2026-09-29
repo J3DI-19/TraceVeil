@@ -24,6 +24,8 @@ export type AssistantVisualizationMode = "none" | "auto" | "timeline" | "severit
 export interface ReportRecord { report_id: string; case_id: number; title: string; sections: string[]; status: "draft" | "generated" | "approved"; narrative: string | null; content_hash: string | null; approved_by: string | null; approved_at: string | null; created_at: string; updated_at: string }
 export type NotificationSubject = "report" | "alert" | "incident";
 export interface EmailDraft { draft_id: string; report_id: string | null; case_id: number | null; subject_type: NotificationSubject; subject_id: string; recipient: string; subject: string; body: string; status: "draft" | "approved" | "sent" | "delivery_unknown"; approved_by: string | null; approved_at: string | null; sent_at: string | null; delivery_error: string | null }
+export interface SmtpConfiguration { host: string; port: number; starttls: boolean; username: string; password_set: boolean; from_address: string; allowed_recipient_domains: string[]; configured: boolean }
+export interface SmtpConfigurationUpdate { host: string; port: number; starttls: boolean; username: string; password: string | null; clear_password: boolean; from_address: string; allowed_recipient_domains: string[] }
 /** Backend-composed notification text, previewed before a draft exists. */
 export interface NotificationPreview { subject_type: NotificationSubject; subject_id: string; subject: string; body: string }
 export interface AuditEvent { audit_id: string; case_id: number | null; action: string; actor: string; subject_type: string; subject_id: string | null; request_id: string | null; details: Record<string, unknown>; occurred_at: string }
@@ -51,6 +53,8 @@ export const phase3Api = {
   downloadReport(reportId: string, signal?: AbortSignal) { return apiClient.download(`/reports/${reportId}/export`, signal); },
   createEmailDraft(reportId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/reports/${reportId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },
   emailDeliveryStatus(signal?: AbortSignal) { return apiClient.request<{ configured: boolean }>("/email-delivery/status", { signal }); },
+  emailDeliveryConfiguration(signal?: AbortSignal) { return apiClient.request<SmtpConfiguration>("/email-delivery/configuration", { signal }); },
+  updateEmailDeliveryConfiguration(configuration: SmtpConfigurationUpdate, signal?: AbortSignal) { return apiClient.request<SmtpConfiguration>("/email-delivery/configuration", { method: "PATCH", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(configuration) }); },
   // Step 11: notification drafts for a deterministic alert or live incident.
   // No report is required and no PDF is attached; the draft is pinned to the
   // artifact's content hash, so re-analysis that changes it revokes approval.

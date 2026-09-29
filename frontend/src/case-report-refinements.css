@@ -337,6 +337,13 @@
   color: #dccba5;
 }
 
+.case-report-email-notice a,
+.case-report-email .state-box a {
+  color: #a8e4d5;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .case-report-email-drafts {
   display: grid;
   gap: 0.65rem;

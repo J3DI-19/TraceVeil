@@ -91,6 +91,7 @@ describe("ReportEmailPanel", () => {
     vi.mocked(phase3Api.emailDrafts).mockResolvedValue({ items: [{ ...draft, status: "approved", approved_by: "Investigator", approved_at: "2026-09-29T01:00:00Z" }] });
     render(<ReportEmailPanel caseId={7} report={report} />);
     expect(await screen.findByText("Delivery setup needed")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Set up email delivery in System Status" })).toHaveAttribute("href", "/status#email-delivery");
     expect(screen.getByRole("button", { name: "Review send" })).toBeDisabled();
   });
 });

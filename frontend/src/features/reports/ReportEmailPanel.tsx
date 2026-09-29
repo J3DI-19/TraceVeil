@@ -74,8 +74,8 @@ export function ReportEmailPanel({ caseId, report }: { caseId: number; report: R
       {active && <StatusBadge status={active.status} />}
     </header>
 
-    {error && <div className="state-box" role="alert"><strong>Email action failed</strong><p>{error === "smtp_not_configured" ? "Email delivery is not configured. Set the SMTP host and sender address before sending." : error}</p></div>}
-    {deliveryConfigured === false && <div className="case-report-email-notice" role="status"><strong>Delivery setup needed</strong><p>You can prepare and approve this email, but sending is unavailable until the SMTP host, sender address, and recipient domain allowlist are configured.</p></div>}
+    {error && <div className="state-box" role="alert"><strong>Email action failed</strong><p>{error === "smtp_not_configured" ? <>Email delivery is not configured. <a href="/status#email-delivery">Set it up in System Status</a>.</> : error}</p></div>}
+    {deliveryConfigured === false && <div className="case-report-email-notice" role="status"><strong>Delivery setup needed</strong><p>You can prepare and approve this email, but sending is unavailable until SMTP is configured. <a href="/status#email-delivery">Set up email delivery in System Status</a>.</p></div>}
     {loading ? <p role="status">Loading email drafts…</p> : <>
       {drafts.length > 0 && <div className="case-report-email-drafts" aria-label="Saved report emails">
         <span className="case-report-field-label">Saved emails</span>
