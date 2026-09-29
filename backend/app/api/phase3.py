@@ -358,6 +358,12 @@ def create_email_draft(report_id: UUID, body: EmailDraftBody, request: Request):
     return service(request).create_email_draft(str(report_id), str(body.recipient), body.subject, body.body)
 
 
+@router.get("/email-delivery/status")
+def email_delivery_status(request: Request):
+    settings = service(request).settings
+    return {"configured": bool(settings.smtp_host and settings.smtp_from_address and settings.smtp_allowed_recipient_domains)}
+
+
 # Step 11: notification drafts for deterministic alerts and live incidents.
 # No report is required - the draft is pinned to the artifact's content hash,
 # and the same approval, hash and recipient allow-list gates apply.

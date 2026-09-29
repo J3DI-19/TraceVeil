@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { phase3Api, type EmailDraft, type ReportRecord } from "../api/phase3";
+import { phase3Api, type ReportRecord } from "../api/phase3";
 import { normalizeApiError } from "../api/client";
 import { Button, Input, StatusBadge } from "../components/ui/core";
+import { ReportEmailPanel } from "../features/reports/ReportEmailPanel";
 
 export function ConnectedReportsPanel({ caseId }: { caseId: number }) {
   const [reports, setReports] = useState<ReportRecord[]>([]);
   const [selected, setSelected] = useState<ReportRecord | null>(null);
   const [title, setTitle] = useState("Investigation report");
   const [approver, setApprover] = useState("Local investigator");
-  const [recipient, setRecipient] = useState("");
-  const [draft, setDraft] = useState<EmailDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ reportId: string; url: string } | null>(null);
@@ -78,15 +77,6 @@ export function ConnectedReportsPanel({ caseId }: { caseId: number }) {
     finally { setBusy(false); }
   };
 
-  const createDraft = async () => {
-    if (!selected || !recipient) return;
-    setBusy(true);
-    setError(null);
-    try { setDraft(await phase3Api.createEmailDraft(selected.report_id, recipient, selected.title, `Attached is the approved ${selected.title}.`)); }
-    catch (reason) { setError(normalizeApiError(reason).message); }
-    finally { setBusy(false); }
-  };
-
   const cancelReport = async () => {
     if (!selected || selected.status !== "generated") return;
     setBusy(true);
@@ -94,7 +84,6 @@ export function ConnectedReportsPanel({ caseId }: { caseId: number }) {
     try {
       await phase3Api.cancelReport(selected.report_id);
       setCancelPending(false);
-      setDraft(null);
       await refresh();
     } catch (reason) { setError(normalizeApiError(reason).message); }
     finally { setBusy(false); }
@@ -132,7 +121,7 @@ export function ConnectedReportsPanel({ caseId }: { caseId: number }) {
           <div><h3 id="case-report-list-title">Case reports</h3><p>Select a report to generate, approve, or deliver.</p></div>
           {reports.length > 0 && <span className="case-report-count">{reports.length} {reports.length === 1 ? "report" : "reports"}</span>}
         </div>
-        {reports.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Report</th><th>Status</th><th>Hash</th></tr></thead><tbody>{reports.map(report => <tr key={report.report_id} className={selected?.report_id === report.report_id ? "selected" : ""}><td><button className="link-button" onClick={() => { setSelected(report); setDraft(null); setCancelPending(false); }}>{report.title}</button></td><td><StatusBadge status={report.status}/></td><td><code>{report.content_hash?.slice(0, 16) ?? "Not generated"}</code></td></tr>)}</tbody></table></div> : <div className="case-report-empty"><span className="case-report-empty-icon" aria-hidden="true">▤</span><strong>No reports yet</strong><p>Create a draft when the investigation is ready for review.</p></div>}
+        {reports.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Report</th><th>Status</th><th>Hash</th></tr></thead><tbody>{reports.map(report => <tr key={report.report_id} className={selected?.report_id === report.report_id ? "selected" : ""}><td><button className="link-button" onClick={() => { setSelected(report); setCancelPending(false); }}>{report.title}</button></td><td><StatusBadge status={report.status}/></td><td><code>{report.content_hash?.slice(0, 16) ?? "Not generated"}</code></td></tr>)}</tbody></table></div> : <div className="case-report-empty"><span className="case-report-empty-icon" aria-hidden="true">▤</span><strong>No reports yet</strong><p>Create a draft when the investigation is ready for review.</p></div>}
       </section>
 
       {selected && <section className="case-report-workflow" aria-labelledby="case-report-selected-title">
@@ -151,7 +140,7 @@ export function ConnectedReportsPanel({ caseId }: { caseId: number }) {
           {cancelPending && selected.status === "generated" && <div className="case-report-cancel" role="group" aria-label="Confirm report cancellation"><p>Delete “{selected.title}” and its generated PDF? This cannot be undone.</p><div><Button variant="danger" disabled={busy} onClick={cancelReport}>Delete report</Button><Button disabled={busy} onClick={() => setCancelPending(false)}>Keep report</Button></div></div>}
           {preview?.reportId === selected.report_id ? <iframe title={`Preview of ${selected.title}`} src={`${preview.url}#toolbar=0`} /> : <div className="case-report-preview-state" role="status">{previewError ? `Preview unavailable: ${previewError}` : "Loading PDF preview…"}</div>}
         </div>}
-        {selected.status === "approved" && <div className="case-report-email"><div><h4>Email delivery</h4><p>Create and approve an email draft before confirming send.</p></div><div className="case-report-email-fields"><span className="case-report-field-label">Recipient email</span><div className="case-report-input-row"><Input ariaLabel="Recipient email" placeholder="recipient@example.test" value={recipient} onChange={setRecipient}/><Button disabled={busy || !recipient} onClick={createDraft}>Create email draft</Button></div></div>{draft && <div className="case-report-email-draft"><strong>Email draft: {draft.status}</strong><p>{draft.recipient} · {draft.subject}</p><div className="case-report-email-actions"><Button disabled={busy || draft.status !== "draft"} onClick={async () => { setBusy(true); try { setDraft(await phase3Api.approveEmail(draft.draft_id, approver)); } catch (reason) { setError(normalizeApiError(reason).message); } finally { setBusy(false); } }}>Approve email</Button><Button variant="danger" disabled={busy || draft.status !== "approved"} onClick={async () => { setBusy(true); try { setDraft(await phase3Api.sendEmail(draft.draft_id)); } catch (reason) { setError(normalizeApiError(reason).message); } finally { setBusy(false); } }}>Confirm and send</Button></div>{draft.delivery_error && <p role="alert">{draft.delivery_error}</p>}</div>}</div>}
+        {selected.status === "approved" && <ReportEmailPanel key={selected.report_id} caseId={caseId} report={selected} />}
       </section>}
     </div>
   </section>;

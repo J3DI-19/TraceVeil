@@ -301,35 +301,234 @@
 
 .case-report-email {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
   margin-top: 1.25rem;
-  padding: 1.375rem;
+  padding: 1.5rem;
   border: 1px solid #255046;
   border-radius: 8px;
   background: #0b1d1c;
 }
 
-.case-report-email-fields {
-  max-width: 42rem;
+.case-report-email-header,
+.case-report-email-preview-heading,
+.case-report-email-review {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.case-report-email-draft {
+.case-report-email-header h4 {
+  margin-top: 0.35rem;
+  color: #e8f5ee;
+  font-size: 1rem;
+}
+
+.case-report-email-notice {
+  padding: 0.9rem 1rem;
+  border: 1px solid #7b653c;
+  border-radius: 7px;
+  background: #2c271b;
+  color: #f3ddad;
+  font-size: 0.75rem;
+}
+
+.case-report-email-notice p {
+  color: #dccba5;
+}
+
+.case-report-email-drafts {
+  display: grid;
+  gap: 0.65rem;
   padding-top: 1rem;
   border-top: 1px solid #285047;
 }
 
-.case-report-email-draft > strong {
-  font-size: 0.8125rem;
-}
-
-.case-report-email-actions {
+.case-report-email-draft-list,
+.case-report-email-actions,
+.case-report-email-confirm > div {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.625rem;
-  margin-top: 1rem;
+}
+
+.case-report-email-draft-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #2d514c;
+  border-radius: 7px;
+  background: #102725;
+  color: #c7e0dc;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.case-report-email-draft-choice.selected {
+  border-color: #68b9ab;
+  background: #173630;
+}
+
+.case-report-email-draft-choice > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.case-report-email-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.9fr);
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.case-report-email-editor,
+.case-report-email-preview {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid #2a4a43;
+  border-radius: 8px;
+  background: #0d191b;
+}
+
+.case-report-email-subhead h5,
+.case-report-email-review h5 {
+  margin: 0;
+  color: #e8f5ee;
+  font-size: 0.875rem;
+}
+
+.case-report-email-field,
+.case-report-email-approver {
+  display: grid;
+  gap: 0.45rem;
+  color: #aec6bf;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.case-report-email-field .input {
+  width: 100%;
+  min-width: 0;
+}
+
+.case-report-email-field textarea {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.case-report-email-editor > .button {
+  justify-self: start;
+}
+
+.case-report-email-preview {
+  gap: 0;
+  background: #f7f8f5;
+  color: #243330;
+}
+
+.case-report-email-preview .eyebrow {
+  color: #437368;
+}
+
+.case-report-email-unsaved {
+  color: #886325;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.case-report-email-preview dl {
+  display: grid;
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+  gap: 0.55rem;
+  margin: 1.25rem 0 0;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #d9e2dd;
+  font-size: 0.75rem;
+}
+
+.case-report-email-preview dt {
+  color: #657a73;
+}
+
+.case-report-email-preview dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.case-report-email-preview-body {
+  min-height: 11rem;
+  padding: 1.25rem 0;
+  color: #334842;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.case-report-email-attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #d7e1da;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.case-report-email-attachment > span {
+  color: #437368;
+  font-size: 1.4rem;
+}
+
+.case-report-email-attachment small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #647a71;
+}
+
+.case-report-email-review {
+  display: grid;
+  padding: 1.25rem;
+  border: 1px solid #2a4a43;
+  border-radius: 8px;
+  background: #102522;
+}
+
+.case-report-email-approver {
+  min-width: 13rem;
+}
+
+.case-report-email-hint {
+  color: #e1bb78 !important;
+}
+
+.case-report-email-confirm {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #806b43;
+  border-radius: 7px;
+  background: #302a1c;
+}
+
+.case-report-email-confirm p {
+  color: #f1dfb9;
 }
 
 @media (max-width: 800px) {
+  .case-report-email-layout {
+    grid-template-columns: 1fr;
+  }
   .case-report-action-grid {
     grid-template-columns: 1fr;
   }
@@ -344,6 +543,13 @@
 }
 
 @media (max-width: 600px) {
+  .case-report-email {
+    padding: 1rem;
+  }
+
+  .case-report-email-header {
+    flex-direction: column;
+  }
   .case-report-panel > .case-report-header,
   .case-report-body {
     padding: 1rem;

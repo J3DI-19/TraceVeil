@@ -1452,7 +1452,7 @@ class Phase3Service:
     REJECTION_REASONS = {
         "approved_email_required", "email_content_changed", "approved_report_required",
         "smtp_not_configured", "recipient_domain_not_allowed", "sent_email_immutable",
-        "artifact_not_found", "unsupported_draft_subject",
+        "artifact_not_found", "unsupported_draft_subject", "delivery_outcome_unknown",
     }
 
     def _audit_rejection(self, case_id: int | None, draft: dict, reason: str,
@@ -1507,6 +1507,8 @@ class Phase3Service:
     def update_email_draft(self, draft_id: str, recipient: str, subject: str, body: str) -> dict:
         draft = self.get_email_draft(draft_id)
         anchor_case = draft["case_id"]
+        if draft["status"] == "delivery_unknown":
+            raise self._reject(anchor_case, draft, "delivery_outcome_unknown")
         if draft["sent_at"]:
             raise self._reject(anchor_case, draft, "sent_email_immutable")
         anchor = self._draft_anchor(draft)
@@ -1528,6 +1530,8 @@ class Phase3Service:
 
     def approve_email(self, draft_id: str, approver: str) -> dict:
         draft = self.get_email_draft(draft_id)
+        if draft["status"] == "delivery_unknown":
+            raise self._reject(draft["case_id"], draft, "delivery_outcome_unknown")
         if draft["sent_at"]:
             raise self._reject(draft["case_id"], draft, "sent_email_immutable")
         anchor = self._draft_anchor(draft)

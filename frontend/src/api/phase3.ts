@@ -50,6 +50,7 @@ export const phase3Api = {
   approveReport(reportId: string, approver: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/approve`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approver, confirmed: true }) }); },
   downloadReport(reportId: string, signal?: AbortSignal) { return apiClient.download(`/reports/${reportId}/export`, signal); },
   createEmailDraft(reportId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/reports/${reportId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },
+  emailDeliveryStatus(signal?: AbortSignal) { return apiClient.request<{ configured: boolean }>("/email-delivery/status", { signal }); },
   // Step 11: notification drafts for a deterministic alert or live incident.
   // No report is required and no PDF is attached; the draft is pinned to the
   // artifact's content hash, so re-analysis that changes it revokes approval.
