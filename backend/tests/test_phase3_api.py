@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from time import sleep
 
 import pytest
@@ -90,6 +91,38 @@ def test_report_approval_and_email_content_hash_lifecycle(client):
     edited = client.patch(f"/api/v1/email-drafts/{draft['draft_id']}", json={"recipient": "security@example.test", "subject": "Updated", "body": "Changed."}).json()
     assert edited["status"] == "draft"
     assert edited["approved_at"] is None
+
+
+def test_generated_report_can_be_previewed_then_cancelled(client):
+    cid = case_id(client)
+    first = client.post(f"/api/v1/cases/{cid}/reports", json={"title": "Review report"}).json()
+    second = client.post(f"/api/v1/cases/{cid}/reports", json={"title": "Review report"}).json()
+    for report in (first, second):
+        assert client.post(f"/api/v1/reports/{report['report_id']}/generate").status_code == 200
+    first_pdf = client.get(f"/api/v1/reports/{first['report_id']}/export")
+    assert first_pdf.status_code == 200
+    assert first_pdf.content.startswith(b"%PDF")
+    first_path = client.app.state.phase3_service.get_report(first["report_id"])["file_path"]
+    assert client.delete(f"/api/v1/reports/{first['report_id']}").status_code == 204
+    assert client.get(f"/api/v1/reports/{first['report_id']}").status_code == 404
+    assert not Path(first_path).exists()
+    assert client.get(f"/api/v1/reports/{second['report_id']}/export").content.startswith(b"%PDF")
+    rows = client.app.state.phase3_service.db.execute(
+        "SELECT action FROM audit_events WHERE subject_id=?", (first["report_id"],)
+    ).fetchall()
+    assert "report.cancelled" in [row[0] for row in rows]
+    assert client.delete(f"/api/v1/reports/{second['report_id']}").status_code == 204
+    assert client.get(f"/api/v1/cases/{cid}/reports").json()["items"] == []
+
+
+def test_approved_report_cannot_be_cancelled(client):
+    cid = case_id(client)
+    report = client.post(f"/api/v1/cases/{cid}/reports", json={"title": "Approved report"}).json()
+    report_id = report["report_id"]
+    assert client.post(f"/api/v1/reports/{report_id}/generate").status_code == 200
+    assert client.post(f"/api/v1/reports/{report_id}/approve", json={"approver": "Investigator", "confirmed": True}).status_code == 200
+    assert client.delete(f"/api/v1/reports/{report_id}").status_code == 409
+    assert client.get(f"/api/v1/reports/{report_id}").json()["status"] == "approved"
 
 
 def test_controlled_live_authentication_sequence_creates_persisted_alert(client):

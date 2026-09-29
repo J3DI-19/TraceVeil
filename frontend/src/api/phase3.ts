@@ -46,6 +46,7 @@ export const phase3Api = {
   reports(caseId: number, signal?: AbortSignal) { return apiClient.request<Page<ReportRecord>>(`/cases/${caseId}/reports`, { signal }); },
   createReport(caseId: number, title: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/cases/${caseId}/reports`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) }); },
   generateReport(reportId: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/generate`, { method: "POST", signal }); },
+  cancelReport(reportId: string, signal?: AbortSignal) { return apiClient.response(`/reports/${reportId}`, { method: "DELETE", signal }); },
   approveReport(reportId: string, approver: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/approve`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approver, confirmed: true }) }); },
   downloadReport(reportId: string, signal?: AbortSignal) { return apiClient.download(`/reports/${reportId}/export`, signal); },
   createEmailDraft(reportId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/reports/${reportId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import io
 import json
 import re
 import smtplib
@@ -17,8 +16,6 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
-from reportlab.lib.pagesizes import LETTER
-from reportlab.pdfgen.canvas import Canvas
 
 from app.core.config import Settings
 from app.db.sqlite import SQLiteRepository
@@ -34,6 +31,7 @@ from app.services.ollama import (
     OLLAMA_TEMPERATURE,
     OLLAMA_THINKING_ENABLED,
 )
+from app.services.report_pdf import build_report_pdf
 from app.visualization.service import VisualizationService
 
 
@@ -1185,6 +1183,29 @@ class Phase3Service:
             raise KeyError("report_not_found")
         result = dict(row); result["sections"] = json.loads(result.pop("sections_json")); return result
 
+    def cancel_report(self, report_id: str) -> None:
+        with self.repository.write_lock:
+            report = self.get_report(report_id)
+            if report["status"] != "generated":
+                raise ValueError("generated_unapproved_report_required")
+            paths = {row[0] for row in self.db.execute(
+                "SELECT file_path FROM report_versions WHERE report_id=?", (report_id,)
+            ).fetchall()}
+            with self.db:
+                self.db.execute("DELETE FROM report_versions WHERE report_id=?", (report_id,))
+                self.db.execute("DELETE FROM reports WHERE report_id=?", (report_id,))
+                self._audit_locked(report["case_id"], "report.cancelled", "report", report_id,
+                                   details={"title": report["title"], "content_hash": report["content_hash"]})
+            # Generated files are content addressed and can be shared by other
+            # reports. Only remove files that have no remaining version.
+            for file_path in paths:
+                referenced = self.db.execute(
+                    "SELECT 1 FROM report_versions WHERE file_path=? LIMIT 1", (file_path,)
+                ).fetchone()
+                path = Path(file_path).resolve()
+                if not referenced and path.parent == self.report_storage:
+                    path.unlink(missing_ok=True)
+
     def generate_report(self, report_id: str) -> dict:
         report = self.get_report(report_id)
         if report["status"] == "approved":
@@ -1208,37 +1229,7 @@ class Phase3Service:
         return self.get_report(report_id)
 
     def _pdf(self, report: dict, case: dict, evidence: list[dict], artifacts: dict[str, list[dict]]) -> bytes:
-        output = io.BytesIO(); canvas = Canvas(output, pagesize=LETTER, invariant=1, pageCompression=1)
-        width, height = LETTER; y = height - 54
-        def line(text: str, size: int = 9, gap: int = 14):
-            nonlocal y
-            safe = str(text).replace("\n", " ")[:115]
-            if y < 54:
-                canvas.showPage(); y = height - 54
-            canvas.setFont("Helvetica-Bold" if size >= 14 else "Helvetica", size); canvas.drawString(54, y, safe); y -= gap
-        line("TRACEVEIL INVESTIGATION REPORT", 16, 24); line(report["title"], 14, 22)
-        line(f"Case: {case['name']} (CASE-{case['id']:04d})"); line(f"Generated UTC: {report['created_at']}"); line("Deterministic forensic results remain backend-authored."); y -= 8
-        # Step 11: the deterministic incident summaries are rendered BEFORE
-        # any AI narration, so the authoritative account is what a reader
-        # meets first and the narrative can only ever annotate it.
-        incidents = artifacts.get("incident", [])
-        if incidents:
-            line("DETERMINISTIC INCIDENT SUMMARIES", 12, 18)
-            for item in incidents[:100]:
-                identifier = item.get("incident_id") or "incident"
-                line(f"{identifier} | {item.get('summary') or 'No deterministic summary available.'}")
-        if report.get("narrative"):
-            line("AI NARRATIVE (NON-AUTHORITATIVE)", 12, 18); line(report["narrative"])
-        line("EVIDENCE REGISTER", 12, 18)
-        for item in evidence:
-            line(f"{item.get('evidence_id')} | {item.get('original_filename')} | SHA-256 {item.get('source_hash')}")
-        for heading, kind in (("FINDINGS", "finding"), ("INCIDENTS", "incident"), ("FORENSIC TIMELINE", "timeline")):
-            line(heading, 12, 18)
-            for item in artifacts.get(kind, [])[:100]:
-                identifier = item.get(f"{kind}_id") or item.get("entry_id") or "record"
-                summary = item.get("title") or item.get("summary") or item.get("event_type") or canonical_json(item)[:80]
-                line(f"{identifier} | {summary}")
-        canvas.save(); return output.getvalue()
+        return build_report_pdf(report, case, evidence, artifacts)
 
     def approve_report(self, report_id: str, approver: str) -> dict:
         report = self.get_report(report_id)

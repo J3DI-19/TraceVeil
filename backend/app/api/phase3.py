@@ -330,6 +330,11 @@ def get_report(report_id: UUID, request: Request):
     return service(request).get_report(str(report_id))
 
 
+@router.delete("/reports/{report_id}", status_code=204)
+def cancel_report(report_id: UUID, request: Request):
+    service(request).cancel_report(str(report_id))
+
+
 @router.post("/reports/{report_id}/generate")
 def generate_report(report_id: UUID, request: Request):
     return service(request).generate_report(str(report_id))
