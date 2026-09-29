@@ -14,7 +14,7 @@ from app.api.phase3 import router as phase3_router
 from app.services.batch import BatchInvestigationService
 from app.services.phase3 import Phase3Service
 from app.analysis.service import AnalysisService
-from app.core.config import get_settings
+from app.core.config import ENV_PATH, get_settings
 from app.core.errors import DatabaseUnavailableError
 from app.db.sqlite import SQLiteRepository
 from app.evidence.service import EvidenceValidationService
@@ -58,6 +58,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    app.state.smtp_env_path = ENV_PATH
     @app.middleware("http")
     async def request_ids(request: Request, call_next):
         request_id=request.headers.get("x-request-id") or str(uuid4())
@@ -74,7 +75,9 @@ def create_app() -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_error(request:Request, exc:RequestValidationError):
         request_id=request.headers.get("x-request-id") or str(uuid4())
-        return JSONResponse(status_code=422,content={"code":"request_validation_error","message":"Request validation failed.","retryable":False,"request_id":request_id,"details":exc.errors()})
+        # Do not echo submitted values: configuration requests can contain SMTP credentials.
+        details = [{key: issue[key] for key in ("type", "loc", "msg") if key in issue} for issue in exc.errors()]
+        return JSONResponse(status_code=422,content={"code":"request_validation_error","message":"Request validation failed.","retryable":False,"request_id":request_id,"details":details})
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.frontend_origins,

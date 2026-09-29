@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ServiceStatus } from "../api/health";
 import { Button, PageHeader, Panel, StatusBadge } from "../components/ui/core";
 import { useSystemHealth } from "../health/SystemHealthContext";
+import { SmtpSettingsPanel } from "../features/system/SmtpSettingsPanel";
 
 function readService(services: ServiceStatus[], name: string) {
   return services.find(service => service.service === name);
@@ -31,6 +32,11 @@ function ollamaServerStatus(ai?: ServiceStatus) {
 }
 
 export function SystemStatusPage() {
+  useEffect(() => {
+    if (window.location.hash === "#email-delivery") {
+      requestAnimationFrame(() => document.getElementById("email-delivery")?.scrollIntoView());
+    }
+  }, []);
   const { services, state, checked, loading, aiUpdating, ollamaUpdating, refresh, updateAiEnabled, updateOllamaRunning } = useSystemHealth();
   const [controlError, setControlError] = useState("");
   const api = readService(services, "api");
@@ -92,6 +98,7 @@ export function SystemStatusPage() {
         <div><span>Loaded VRAM</span><b>{formatBytes(ai?.size_vram_bytes)}</b></div><div><span>Capabilities</span><b>{ai?.capabilities?.join(" · ") || "Unavailable"}</b></div><div><span>Grounding packet limit</span><b>{formatBytes(ai?.grounding_context_limit_bytes)}</b></div><div><span>Request context</span><b>{ai?.request_context_length ? `${ai.request_context_length.toLocaleString("en-US")} tokens` : "Unavailable"}</b></div><div><span>Generation policy</span><b>{ai ? `${ai.max_output_tokens ?? "?"} output · thinking ${ai.thinking_enabled ? "on" : "off"} · temp ${ai.temperature ?? "?"}` : "Unavailable"}</b></div><div><span>Model residency</span><b>{ai?.keep_alive ? `Keep loaded ${ai.keep_alive}` : "Unavailable"}</b></div><div><span>Request timeout</span><b>{ai?.generation_timeout_seconds ? `${ai.generation_timeout_seconds} seconds` : "Unavailable"}</b></div>
       </div>
     </Panel>
-    <div className="status-layout"><Panel title="Capability boundary"><div className="capability-table"><div><b>Capability</b><b>Current state</b><b>Notes</b></div>{[["Connected investigation views", "Implemented", "Backend-authored records, filters, pagination, and details"], ["Batch evidence ingestion", "Implemented", "Validation, explicit partial approval, persistence, and reanalysis"], ["Live HTTP collection", "Implemented", "Environment source tokens, receipts, deduplication, and device state"], ["SSE delivery", "Implemented", "Replayable one-way stream with bounded browser buffers"], ["Traceveil AI", ai?.enabled === false ? "Disabled" : ai?.server_running ? "Optional" : "Waiting", "Uses Ollama when both services are on; deterministic fallback remains available"], ["PDF and SMTP delivery", "Approval gated", "Immutable approvals; SMTP send is always a separate confirmation"], ["Physical hardware and MQTT", "Future adapter", "Simulator is the Phase 3 acceptance path"]].map(row => <div key={row[0]}><span>{row[0]}</span><StatusBadge status={row[1]} /><span>{row[2]}</span></div>)}</div></Panel><Panel title="Environment notes"><div className="notes-list"><div><i>i</i><p><b>Secrets stay server-side</b>Source tokens, Ollama configuration, and SMTP credentials are never returned by APIs.</p></div><div><i>✓</i><p><b>Deterministic authority</b>Risk, findings, ordering, and report evidence remain backend-authored.</p></div><div><i>⌁</i><p><b>Controlled delivery</b>No report email is sent without unchanged report and email approvals.</p></div></div></Panel></div>
+    <SmtpSettingsPanel />
+    <div className="status-layout"><Panel title="Capability boundary"><div className="capability-table"><div><b>Capability</b><b>Current state</b><b>Notes</b></div>{[["Connected investigation views", "Implemented", "Backend-authored records, filters, pagination, and details"], ["Batch evidence ingestion", "Implemented", "Validation, explicit partial approval, persistence, and reanalysis"], ["Live HTTP collection", "Implemented", "Environment source tokens, receipts, deduplication, and device state"], ["SSE delivery", "Implemented", "Replayable one-way stream with bounded browser buffers"], ["Traceveil AI", ai?.enabled === false ? "Disabled" : ai?.server_running ? "Optional" : "Waiting", "Uses Ollama when both services are on; deterministic fallback remains available"], ["PDF and SMTP delivery", "Approval gated", "Immutable approvals; SMTP send is always a separate confirmation"], ["Physical hardware and MQTT", "Future adapter", "Simulator is the Phase 3 acceptance path"]].map(row => <div key={row[0]}><span>{row[0]}</span><StatusBadge status={row[1]} /><span>{row[2]}</span></div>)}</div></Panel><Panel title="Environment notes"><div className="notes-list"><div><i>i</i><p><b>Secrets stay server-side</b>Source tokens, Ollama configuration, and SMTP passwords are never returned by APIs.</p></div><div><i>✓</i><p><b>Deterministic authority</b>Risk, findings, ordering, and report evidence remain backend-authored.</p></div><div><i>⌁</i><p><b>Controlled delivery</b>No report email is sent without unchanged report and email approvals.</p></div></div></Panel></div>
   </>;
 }
