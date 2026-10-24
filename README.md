@@ -1,171 +1,258 @@
 # Traceveil
 
-**Traceveil: AI-Assisted Real-Time Smart Home IoT Digital Forensics and Incident Response Platform** is a final-year academic prototype that combines historical/batch IoT evidence analysis with controlled real-time IoT telemetry monitoring and alerting. It is designed to turn heterogeneous records into explainable alerts, risk scores, correlated events, reconstructed timelines, device/entity graphs, and investigation-ready reports without presenting itself as a production IDS or SIEM.
+**AI-Assisted Real-Time Smart Home IoT Digital Forensics and Incident Response Platform**
+
+Traceveil is a completed final-year academic prototype for investigating historical
+IoT evidence and controlled live sensor activity. It turns accepted records into
+explainable findings, bounded risk scores, correlated incidents, timelines,
+device relationships and investigation reports, with optional local AI assistance.
+
+**Project status — 24 October 2026:** all **176 planned roadmap items are
+complete (100%)** for the documented one-sensor laboratory demonstration.
+Real ESP32/DHT22 input, live updates, a controlled suspicious scenario and
+persisted case investigation have been verified. The delivery record includes the implementation baseline
+`180f204` and this documentation commit, **Finalize project delivery documentation**,
+on `J3DI`. The final integration is recorded by its pull request into `main`. See the [completion report](docs/Completion_Report_2026-09-06.md)
+for acceptance evidence and remaining operational follow-ups.
 
 ## What it does
 
-Traceveil is planned to:
+- Imports evidence into cases, validates and hashes source files, and retains raw-record provenance.
+- Normalizes batch records, authenticated HTTP telemetry and local USB sensor input into a common canonical event model.
+- Applies deterministic detection, behavioural baselines, risk scoring, correlation and incident grouping.
+- Presents findings, alerts, minute-based timelines, graphs and charts from persisted backend results.
+- Displays real temperature/humidity values and incoming input records in Live Monitor, with replayable SSE and reconnect recovery.
+- Detects a connected ESP32, installs USB firmware when needed, creates or selects a case and verifies the first saved reading through **Connect & start**.
+- Runs an audited **Simulate alert** scenario through the normal detection pipeline, with clearly labelled test events and alerts.
+- Preserves live activity for historical investigation, including analysis snapshots and evidence references.
+- Provides case-scoped local AI chat, verified citations and allow-listed visualizations through Ollama.
+- Generates structured PDF reports and editable email previews with separate approval and explicit-send controls.
+- Exposes local SMTP setup, system health and an audit trail for investigation and delivery actions.
 
-- Ingest public IoT datasets, simulated incidents, and uploaded evidence files.
-- Receive live telemetry from an Arduino-compatible microcontroller and IoT test device in an authorized laboratory setup.
-- Normalize batch and live records into one canonical event model while preserving source, device, ingestion, and raw-record provenance.
-- Apply deterministic rules, behavioural baselines, bounded risk scoring, event correlation, and timeline reconstruction.
-- Generate device/entity relationships, chart-ready aggregates, and live alerts from verified backend values.
-- Preserve accepted live events as evidence for later forensic investigation.
-- Present historical and incoming findings through a React investigation dashboard.
-- Use a local Qwen 9B Q4_K_M model through Ollama only for evidence-grounded summaries, explanations, investigation chat, email drafts, and visualization layout planning.
+Python and the persisted evidence remain the computational authority. AI can
+explain validated results; it does not invent forensic values, alter evidence,
+execute attacks or send messages autonomously. Simulated scenarios remain
+separate from real sensor measurements and are labelled in the saved records.
 
-Python remains the computational authority. The language model may explain validated results, but it cannot calculate forensic values, create unsupported alerts, invent or alter evidence, execute attack logic, run arbitrary code, or send messages autonomously. Alerting, scoring, detection, correlation, timelines, graphs, and chart values remain deterministic for both ingestion paths.
+## Start the prepared demonstration
+
+On the prepared Windows laptop:
+
+1. Double-click **[Start Sensor.cmd](Start%20Sensor.cmd)** to start the local backend/frontend and open Live Monitor.
+2. Connect the ESP32 with its micro-USB **data** cable.
+3. In **USB sensor setup**, keep **Create a new case** selected or choose an existing case, then click **Connect & start**.
+4. Wait for the first real reading to be saved. The monitor switches to that case automatically.
+5. Click **Simulate alert** during capture to exercise the controlled authentication-failure scenario. Review its saved alert and the case’s Findings, Timeline and Visuals.
+6. Use **Stop USB capture** or **Stop capture** when finished. Saved readings remain available in the case.
+
+The dashboard is at [http://127.0.0.1:5173/live](http://127.0.0.1:5173/live).
+The launcher uses the default browser; the same address can be opened in Opera GX.
+It reuses running services and does not start capture by itself.
+
+### Verified hardware
+
+| Component | Configuration |
+| --- | --- |
+| Board | Robocraze ESP32 NodeMCU 30-pin, classic ESP32 target, CP2102 USB interface |
+| Sensor | Three-pin DHT22 temperature/humidity module |
+| Wiring | DHT22 **+ → 3V3**, **− → GND**, **OUT → GPIO 4** |
+| Connection | Micro-USB data cable and direct jumper wires; breadboard optional |
+| USB firmware | `hardware/esp32/traceveil_usb_sensor/traceveil_usb_sensor.ino` |
+
+USB capture needs no hotspot, Wi-Fi credentials, NTP or HTTPS proxy. It uses the
+laptop’s UTC receipt time, recorded as `timestamp_source=host_received_utc` in raw
+metrics. Keep the laptop clock correct and USB connected throughout capture.
+Changing the selected capture case ends the source’s previous active capture.
+Switching dashboard pages leaves capture running; restarting the backend or
+unplugging the board requires another **Connect & start**.
+
+First-use firmware installation replaces the current sketch with USB firmware;
+subsequent starts reuse it. Close any serial monitor using the board’s port.
+If several CP2102 boards are attached, choose the intended port. Missing hardware,
+busy ports, failed installation and missing sensor readings produce setup errors.
+
+The prepared compiler, libraries, driver, source credential and runtime files are
+local prerequisites; they are excluded from Git. A fresh clone needs initial
+hardware/tool setup before the USB button can provision a board. See the
+[USB setup guide](hardware/esp32/USB-ONE-CLICK.md) and
+[hardware preparation record](hardware/esp32/PREPARE-AND-FLASH.md).
+The earlier [HTTPS sensor firmware](hardware/esp32/traceveil_dht22/README.md)
+remains available for network-based capture.
 
 ## Architecture
 
-Traceveil uses two input paths that converge before analysis:
-
 ```text
-Batch Evidence -----\
-                     -> Canonical Events -> Common Investigation Pipeline
-Live IoT Events ----/
+Batch evidence ───────────┐
+Authenticated HTTP input ─┼─> Validated evidence / durable receipts
+Local USB sensor input ──┘                │
+                                         v
+                              Canonical events + provenance
+                                         │
+                                         v
+                         Deterministic detection, risk and correlation
+                                         │
+                                         v
+                         Findings · Alerts · Incidents · Timelines
+                         Device graphs · Charts · Analysis snapshots
+                                         │
+                                         v
+                         React dashboard + SSE · PDF reports
+                         Optional grounded local AI · Approved email
 ```
 
-The platform is organized into these layers:
+Both live transports feed the same normalization and investigation pipeline as
+batch evidence. Browser views query persisted case records. Replay and recovery
+refresh authoritative values, and pinned historical snapshots retain their scope.
 
-1. **Batch Evidence and Adapter Layer** — registers cases, hashes and validates uploaded evidence, and adapts controlled simulation records. Versioned CASAS smart-home and TON_IoT device-telemetry adapters support the primary public datasets; TON_IoT network and CICIoT2023 adapters remain secondary compatibility paths.
-2. **Live IoT Collection Layer** — receives token-authenticated HTTP telemetry, persists receipts and malformed-input issues, normalizes accepted records, and publishes replayable SSE updates. MQTT remains a future transport adapter.
-3. **Canonical Event and Normalization Layer** — maps accepted batch and live inputs into one versioned event model with retained provenance.
-4. **Detection and Risk Engine** — applies deterministic rules, behavioural baselines, and bounded factorized scores.
-5. **Correlation and Timeline Engine** — links events through declared entity keys and time windows and produces stable, reproducible chronologies.
-6. **Graph and Query Engine** — calculates device/entity relationships, filters, aggregates, and chart-ready values.
-7. **API, Storage and Real-Time Event Delivery** — provides FastAPI/Pydantic contracts, SQLite persistence, audit history, deterministic PDF exports, approved SMTP delivery, and SSE replay.
-8. **Visualization and AI Layer** — renders allow-listed React components and provides bounded local assistance over validated evidence.
-9. **React Investigation Dashboard** — presents cases, evidence, metrics, live status, event and alert feeds, timelines, graphs, charts, findings, chat, and reports.
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, Recharts, React Flow |
+| Backend | Python 3.11+, FastAPI, Pydantic, Pandas, NetworkX |
+| Persistence | SQLite, source/evidence storage and durable job receipts |
+| Live input and delivery | Authenticated HTTP, PySerial USB adapter and replayable SSE |
+| Reports and email | ReportLab PDF output and approval-gated SMTP |
+| Optional AI | Ollama with the configured local Qwen model |
+| Verification | Pytest, Vitest, generated OpenAPI types and firmware compilation |
 
-The live path is not a separate analytics system. Accepted live telemetry passes through the same canonical model and deterministic investigation pipeline as batch evidence, then remains available for historical review.
+## Local installation
 
-## Technology stack
+For a fresh development checkout, install Python 3.11+, Node.js 20+, npm and Git.
+A 64-bit computer with 16 GB RAM and SSD storage is the documented baseline;
+24–32 GB RAM and an optional supported GPU help with local model inference.
+Ollama, SMTP and physical hardware are optional for batch investigation.
 
-- **Frontend:** React, Vite, Tailwind CSS, shadcn/ui, Recharts, React Flow
-- **Backend:** Python, FastAPI, Pandas, NetworkX, Pydantic
-- **Storage:** SQLite, with a repository boundary for future PostgreSQL support
-- **Local AI:** Ollama with Qwen 9B Q4_K_M
-- **Live communication:** authenticated HTTP for device telemetry and SSE for one-way browser delivery
-- **Testing and tooling:** Pytest, Vitest, Git, GitHub, SMTP, and a modern browser
+From the repository root, create the environment file only if one is missing:
 
-Physical hardware and MQTT are optional future integrations behind the implemented transport-neutral collector boundary.
+```powershell
+if (-not (Test-Path backend\.env)) {
+    Copy-Item .env.example backend\.env
+}
+```
 
-## Data sources and evaluation
+### Backend
 
-Traceveil's primary batch evaluation sources are CASAS smart-home telemetry, TON_IoT device telemetry, and controlled simulated cases. CASAS supplies real household motion, door, and ambient sensor activity; TON_IoT supplies smart-device telemetry with normal and attack-labelled behaviour; simulation supplies precise golden cases for timestamps, identities, rules, baselines, correlations, and expected alerts. A small authorized IoT laboratory demonstration supplies the live path. Existing CICIoT2023 network-flow support is a secondary compatibility path and is not part of the primary smart-home evaluation plan. Evaluation will cover normalization correctness, reproducibility, detection and correlation quality, visualization safety, usability, live ingestion and delivery behaviour, and performance under declared hardware and network conditions.
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-Representative golden cases will preserve expected normalized records, rule matches, risk factors, correlation edges, and ordered timelines. Live evaluation will additionally cover valid and malformed telemetry, device/source identification, evidence persistence, temporary disconnections, reconnect behaviour, delivery latency, and a controlled suspicious-event scenario.
+### Frontend
 
-## Scope and safeguards
+In a second terminal:
 
-In scope are batch imports, case management, controlled laboratory live telemetry acquisition, deterministic analysis, near-real-time alerts, dashboard review, preservation of live events, local AI assistance, SQLite case history, investigator-approved SMTP alerts, and report export. The controlled demonstration may use repeated authentication failures, abnormal request frequency, unexpected command sequences, deliberate telemetry spikes, or simulated suspicious state changes against owned or authorized test devices.
+```powershell
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
 
-Out of scope are production-scale IoT monitoring, passive interception of arbitrary third-party networks, unauthorized device access, firmware extraction, production fleet management, automated containment, autonomous attack execution, legal-admissibility claims, and replacement of enterprise SIEM or IoT security products. Evidence is processed locally where possible, model context is bounded, secrets remain outside the repository, and deterministic findings are kept distinct from AI-generated narrative.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite forwards `/api` to the
+backend. Health endpoints are `/api/v1/health`, `/api/v1/health/db` and
+`/api/v1/health/ai` on port 8000.
 
-## Requirements
+For physical USB capture, prepare the local ESP32 toolchain and configure the
+`esp32-lab-01` source in `LIVE_SOURCE_TOKENS` as described in the hardware guides.
+Keep credentials in ignored local configuration, not in committed source files.
 
-### Development computer
+### Optional local AI
 
-- 64-bit quad-core processor
-- 16 GB RAM minimum; 24–32 GB recommended for local inference
-- 30 GB free SSD space
-- Optional supported GPU for faster Ollama responses
-- Python 3.11 or newer, Node.js 20 or newer, SQLite, Git, and Ollama with the selected model
+Install and start Ollama, pull the intended local model, and set its exact tag in
+`backend/.env` as `OLLAMA_MODEL`. Use `ollama list` and **System Status** to check
+availability. Core investigation remains usable when the model is offline.
 
-### Controlled live demonstration
+### Reports and email
 
-- Arduino-compatible microcontroller
-- At least one IoT test device or controllable IoT endpoint
-- Local network or Wi-Fi environment
-- Supporting data cables and power as required by the selected hardware
+Create a case report, generate its PDF, review and approve it before export or
+delivery. Email uses a separately editable and approved draft with a final
+**Send** action. Alert and incident drafts can be created directly from their
+record drawers. Simulation does not send email.
 
-Exact hardware and communication protocols remain implementation decisions.
+Configure the provider, sender, credentials, TLS option and allowed recipient
+domains under **System Status → SMTP setup**. The last local check reported an
+empty SMTP host and `configured=false`; real recipient delivery has **not** been
+verified. Fake-SMTP tests verify approval, send behavior and delivery-state updates.
+The app does not send alerts by email automatically or automatically retry an
+uncertain delivery.
+
+## Data and evaluation
+
+The repository includes curated CASAS, TON_IoT, HAI ICS, IoT-23 and controlled
+simulation workflows, with dataset descriptions, provenance and deterministic
+expectations. Label-free evaluation distinguishes supplied dataset labels from
+independently detected concerns. Large research datasets stay outside Git.
+
+The physical demonstration used real sensor readings in Cases 8 and 9, with a
+controlled authentication-failure simulation exercising `AUTH-001`. The simulator
+uses its own `traceveil-simulator` source and `simulated-auth-*` device identities;
+it does not claim that the DHT22 itself was compromised. Sensor accuracy was not
+independently calibrated.
+
+## Verification
+
+Run the backend suite from `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Run frontend checks from `frontend/`:
+
+```powershell
+npm test
+npm run lint
+npm run build
+```
+
+The latest recorded focused runs passed 11 USB/configuration backend tests,
+43 Live Monitor/setup frontend tests and 34 case-workspace/API-client frontend
+tests, plus separate case-query, history/reanalysis, simulation and email
+regressions. The production frontend build and USB firmware compilation passed;
+the firmware was uploaded and both new-case and existing-case USB capture were
+verified on the actual board. API JSON and generated types were synchronized.
+Final documentation preflight passed all 155 frontend tests, the TypeScript
+check and production build, plus the OpenAPI export check. App smoke tests were
+aligned with the completed live-monitor and report interfaces. Backend full-suite
+and integration acceptance are recorded by the final PR checks.
+
+Real SMTP/inbox acceptance remains an operational follow-up. Full integration
+checks and merge status are recorded on the final pull request into `main`. MQTT, multi-user authorization and external
+job/storage infrastructure are possible extensions beyond this completed local
+academic scope.
 
 ## Project documents
 
-- [Full project synopsis (DOCX)](docs/synopsis/Traceveil_Full_Synopsis.docx)
-- [Full project synopsis (PDF)](docs/synopsis/Traceveil_Full_Synopsis.pdf)
-- [Implementation roadmap](docs/roadmap.md)
-- [Investigation API contract](docs/contracts/investigation-api.md)
+The three current project records live together in **[`docs/`](docs/)**:
 
-## Team
+| Record | File |
+| --- | --- |
+| Roadmap and acceptance checklist | [roadmap.md](docs/roadmap.md) |
+| Completion report | [Completion_Report_2026-09-06.md](docs/Completion_Report_2026-09-06.md) |
+| Team contributions | [Contributions.md](docs/Contributions.md) |
+
+The completion report retains its original filename; its current update date and
+source commit are recorded inside. Older DOCX handoffs remain historical exports.
+
+- [USB one-click setup](hardware/esp32/USB-ONE-CLICK.md)
+- [Physical hardware preparation and HTTPS acceptance](hardware/esp32/PREPARE-AND-FLASH.md)
+- [Live scenario and historical-review demonstration](docs/phase3-live-demo.md)
+- [Evidence validation contract](docs/contracts/evidence-validation.md)
+- [Canonical event contract](docs/contracts/canonical-event.md)
+- [Deterministic analysis contract](docs/contracts/deterministic-analysis.md)
+- [Investigation API contract](docs/contracts/investigation-api.md)
+- [Full project synopsis (DOCX)](docs/First%20Review%20synopsis/Traceveil_Full_Synopsis.docx)
+- [Full project synopsis (PDF)](docs/First%20Review%20synopsis/Traceveil_Full_Synopsis.pdf)
+
+## Scope and team
+
+Traceveil is a local academic investigation prototype for owned or authorized
+laboratory devices. Production fleet monitoring, arbitrary third-party network
+interception, automated containment and legal-admissibility claims remain outside
+its scope. Findings and AI narrative are visibly distinct, and external delivery
+requires investigator approval.
 
 - Atharva Rangnekar (K053)
 - Aarya Rao (K054)
 - Ayra Jha (K028)
 - Project guide: Prof. Rohit Suryawanshi
-
-## Project status
-
-Phase 3 software is implemented: connected batch investigation views, authenticated live HTTP collection, durable receipts and device state, bounded micro-batching, replayable SSE, optional grounded Ollama assistance, deterministic PDF reports, approval-gated SMTP delivery, audit history, and a controlled telemetry simulator. Physical hardware assembly is optional; the recommended one-sensor ESP32 sketch is in [hardware/esp32/traceveil_dht22](hardware/esp32/traceveil_dht22/README.md), while the original multi-device sketch remains available. See [the Phase 3 demonstration guide](docs/phase3-live-demo.md).
-
-The repository contains the React/Vite connected investigation interface, versioned FastAPI APIs, SQLite persistence and recovery, CASAS and TON_IoT telemetry adapters, the canonical normalization pipeline, deterministic analysis, and generated OpenAPI TypeScript DTOs. Production routes query persisted records; mock adapters remain explicit test/demo configuration only.
-
-Batch and live sources now converge into immutable evidence and canonical events before deterministic rules, risk scoring, correlation, incidents, timelines, graphs, and aggregates. Ollama narration is optional and citation-validated; reports and email delivery use separate content-hash approvals. See the [validation contract](docs/contracts/evidence-validation.md), [canonical event contract](docs/contracts/canonical-event.md), [deterministic analysis contract](docs/contracts/deterministic-analysis.md), [investigation API contract](docs/contracts/investigation-api.md), and [roadmap](docs/roadmap.md).
-
-The next expansion points are optional physical hardware, MQTT behind the collector interface, multi-user authentication/authorization, and external job/storage infrastructure if the local single-user architecture is outgrown.
-
-## Local setup and run
-
-This setup runs the connected batch and live platform locally. Ollama, SMTP, and physical hardware are optional; core investigation remains available without them.
-
-### Prerequisites
-
-- Python 3.11 or newer
-- Node.js 20 or newer and npm
-- Optional: Ollama for local Qwen availability checks
-
-From the repository root, create the local environment file:
-
-```powershell
-Copy-Item .env.example backend\.env
-```
-
-### Backend installation and tests
-
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m pytest
-```
-
-Start the backend from `backend/`:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Health endpoints are available at:
-
-- `http://127.0.0.1:8000/api/v1/health`
-- `http://127.0.0.1:8000/api/v1/health/db`
-- `http://127.0.0.1:8000/api/v1/health/ai`
-
-### Frontend installation and tests
-
-In a second terminal from the repository root:
-
-```powershell
-cd frontend
-npm install
-npm test
-npm run build
-npm run dev
-```
-
-Open `http://localhost:5173`. The Vite proxy forwards `/api` requests to the backend at `http://127.0.0.1:8000`.
-
-### Optional Ollama setup
-
-Install Ollama separately, start its local service, and pull the selected Qwen 9B Q4_K_M model. Set the exact installed model name in `backend\.env` as `OLLAMA_MODEL`. Then check:
-
-```powershell
-ollama list
-Invoke-RestMethod http://127.0.0.1:8000/api/v1/health/ai
-```
-
-If Ollama is not installed or stopped, the AI health endpoint returns an unavailable optional status while the API, SQLite, and frontend continue to work.

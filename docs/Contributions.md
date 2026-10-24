@@ -1,17 +1,19 @@
 # Team Ownership & Contributions
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-10-24
 
-**Repository snapshot:** `40627d2` on branch `main`
+**Repository snapshot:** `180f204` plus this documentation commit, **Finalize project delivery documentation**, on `J3DI`
 
-**Commit count:** 77
+**Integration status:** the final pull request into `main` records CI and merge status. Snapshot counts include this documentation commit and exclude the subsequent integration merge commit.
+
+**Commit count:** 82
 
 This record combines author names that use the same verified email identity. In
 particular, `J3DI` and `J3DI-19` are reported together as J3DI.
 
 ```mermaid
 pie title Commit Authorship at the Recorded Snapshot
-    "J3DI" : 60
+    "J3DI" : 69
     "Aarya" : 10
     "Ayra" : 3
 ```
@@ -22,7 +24,7 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 01, 02, 09, 10, plus cross-cutting integration and delivery
 
-**Verified commits:** 64
+**Commits in this snapshot:** 69 (including this documentation commit)
 
 ### Allocated project-wide ownership
 
@@ -82,8 +84,19 @@ pie title Commit Authorship at the Recorded Snapshot
   ESP32/DHT22 HTTP sketch, example configuration, wiring and setup guide, and
   CI compilation check in PR #30, merged into `main` at `40627d2`.
 
+- **Report delivery and PDF layout:** Added structured report PDF generation and the generate/approve/export/delivery workspace in `dfc9105`.
+- **Email preview and SMTP setup:** Added editable report-email previews and explicit delivery controls in `cb8bb60`, followed by local System Status SMTP configuration in `fae38b8`. Stored passwords are not returned to the browser. Real provider delivery remains unverified; approval and final-send requirements remain in place.
+- **Physical laboratory acceptance:** Wired and verified the Robocraze ESP32 NodeMCU with a DHT22 on GPIO 4; demonstrated real HTTPS and USB input, saved events, live updates and case review. The controlled authentication-failure scenario exercised `AUTH-001`, saved alerts, incident grouping, timelines and entity relationships with explicit simulation labels.
+- **USB setup and next-day operation:** Added first-use firmware installation, CP2102 detection, new/existing case selection, durable-first-reading verification, reconnect/stop handling, the USB firmware and the local launcher in `180f204`. Case 9 verified both new-case and existing-case paths without inventing measurements.
+- **Live usability and reliability:** Prioritized temperature/humidity and input values, added audited **Simulate alert**, fixed slow Case 8/latest-snapshot queries and history rendering, moved stream DB waits off the event loop, coalesced replay invalidation and clarified timeout errors. Added focused regressions, API types, setup guides and saved UI previews.
+
 ### Most recent verified commits
 
+- **Finalize project delivery documentation** (2026-10-24, this commit) — Final README, completed roadmap, physical acceptance evidence, contribution counts and a common `docs/` home for the three project records. Also aligns app-level smoke assertions with the finished UI; all 155 frontend tests, TypeScript checking, production build and OpenAPI export verification passed. Recorded by subject to avoid an impossible self-referencing commit SHA.
+- `180f204` (2026-10-24) — **One-click USB sensor setup and live monitoring.** Physical capture, firmware, case selection, readable live inputs, alert simulation, case-loading fixes and regression coverage.
+- `fae38b8` (2026-09-29) — **SMTP setup in System Status.** Local configuration, password-safe persistence and setup controls.
+- `cb8bb60` (2026-09-29) — **Report email preview and controlled delivery.** Preview, edit, approve and explicitly send the intended draft.
+- `dfc9105` (2026-09-29) — **Report delivery and PDF layout.** Structured PDF rendering and an improved report delivery workspace; this was local `main`’s tip before final integration.
 - `40627d2` (2026-09-25) — **Merge PR #30.** Integrated the ESP32/DHT22
   one-sensor live telemetry reference sketch and its CI compile check.
 - `320c56e` (2026-09-25) — **Add one-sensor ESP32 live telemetry sketch.** Added
@@ -206,8 +219,10 @@ pie title Commit Authorship at the Recorded Snapshot
 
 ## Attribution note
 
-Counts above come from `git shortlog -sne main` at `40627d2`. The J3DI total
-combines 46 commits authored as `J3DI` and 18 authored as `J3DI-19`, which share
+The baseline is `git shortlog -sne 180f204` (81 commits). The snapshot adds this
+J3DI-authored documentation commit, giving 82 total commits and 69 for J3DI.
+The J3DI total combines 51 commits authored as `J3DI` and 18 authored as
+`J3DI-19`, which share
 the verified `j3di.legend@gmail.com` identity. Feature ownership
 is based on the committed diff and the agreed assigned steps; a checked roadmap
 item records delivery ownership and does not erase earlier foundational work by

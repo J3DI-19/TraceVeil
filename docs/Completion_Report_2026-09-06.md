@@ -1,17 +1,17 @@
 # COMPLETION REPORT
 **Traceveil roadmap reconciliation, delivery status, and contribution record**
 
-**Prepared:** 2026-09-25
+**Updated:** 2026-10-24 (original report filename retained)
 
-**Source set:** Roadmap, frontend completion audit, batch and Steps 9–11 practical-usability and verification records, contribution record, and verified repository history through `40627d2`.
+**Source set:** Roadmap, frontend completion audit, batch and Steps 9–11 practical-usability and verification records, contribution record, physical ESP32/USB acceptance records, verified repository history through `180f204`, and this documentation commit, **Finalize project delivery documentation**.
 
-**Repository snapshot:** `40627d2` on branch `main` following the merge of PR #30.
+**Repository snapshot:** implementation baseline `180f204` plus this documentation commit, **Finalize project delivery documentation**, on `J3DI` (82 commits). This snapshot excludes the later integration merge commit; the final PR records merge and CI status.
 
 ## Executive Summary
 
 **Project Delivery Status & Trajectory**
 
-Traceveil now provides an integrated investigation platform spanning evidence intake, deterministic analysis, safe visual exploration, grounded local-AI assistance, real-time browser delivery, and approval-gated reporting and notification automation. The software roadmap is complete through Step 11; the remaining Step 12 items require physical hardware acceptance.
+Traceveil now provides an integrated investigation platform spanning evidence intake, deterministic analysis, safe visual exploration, grounded local-AI assistance, real-time browser delivery, and approval-gated reporting and notification automation. All 176 roadmap items are now complete within the agreed one-sensor laboratory scope, including the physical ESP32/DHT22 demonstration. Real email delivery and a fresh full CI run remain operational follow-ups.
 
 **Key Recent Achievements:**
 - **Batch Processing Attained:** The system securely ingests, validates, and normalizes evidence into canonical events. The deterministic analysis engine is actively generating bounded risk scores, timelines, and analytical projections (Steps 3, 4, 6, and 8).
@@ -42,15 +42,17 @@ Traceveil now provides an integrated investigation platform spanning evidence in
 - **Real-Time Delivery Completed:** Step 7 now provides SSE delivery, replay and reconnect handling, authoritative recovery, scope-isolated buffers, backend-authored device state, and response-order guards without changing forensic calculations.
 - **Reporting and Notification Automation Completed:** Step 11 now provides deterministic incident summaries, report export, grounded alert and incident drafts, investigator approval, SMTP delivery controls, automatic processing and grouping, and atomic audit history.
 - **Mainline Integration Completed:** PR #28 merged the verified Steps 7 and 11 delivery into `main` at `7ef17c6` after all required GitHub checks passed.
-- **ESP32 Reference Firmware Added:** PR #30 added a configurable ESP32/DHT22 one-sensor HTTP telemetry sketch, setup and wiring instructions, an example configuration, and a CI compile check. This prepares the firmware path for the Step 12 demonstration; it does not constitute physical-hardware acceptance.
+- **Physical Sensor Acceptance Completed:** A real ESP32/DHT22 produced persisted readings over HTTPS in Case 8 and USB in Case 9. Controlled simulator events exercised detection, alerts, incidents, timelines and relationships alongside the physical input.
+- **Reports and Email UX Improved:** Structured PDF output, report delivery controls, editable email previews and local SMTP configuration were added across `dfc9105`, `cb8bb60` and `fae38b8`. Approval and explicit send remain required.
+- **One-Click USB Capture Added:** `180f204` adds automatic board detection, first-use firmware installation, new/existing case selection, a persisted-first-reading check and the `Start Sensor.cmd` launcher. Reconnecting to an existing case was physically verified.
+- **Live Investigation Reliability Improved:** Case lookup indexing, lighter snapshot summaries, nonblocking stream polling, coalesced case invalidation and clearer timeout errors resolve the Case 8 loading failure. The live screen now prioritizes readable sensor values and includes audited alert simulation.
 
 **Overall Progress:**
-The reconciled roadmap contains **176 planned sub-items**, of which **165 are implemented and verified**, for a formal completion rate of **93.8%**. Steps 7 and 11 are complete in addition to the previously completed software areas. The **11 remaining items** are confined to the physical demonstration and hardware acceptance in Step 12. PR #30 adds a compile-checked reference firmware and setup documentation without changing that acceptance count.
+The reconciled roadmap contains **176 planned sub-items**, all **176 complete (100%)** for the documented laboratory scope. Step 12’s 11 items now have physical-input and controlled-scenario acceptance evidence. Provider-specific email setup, real inbox receipt and a fresh full CI run are follow-ups outside that completed demonstration checklist.
 
 ```mermaid
 pie title Overall Roadmap Completion
-    "Complete (165)" : 165
-    "Pending (11)" : 11
+    "Complete (176)" : 176
 ```
 
 ---
@@ -267,25 +269,49 @@ pie title Step 11 Progress
 - [x] Create deterministic incident summaries before AI narration
 - [x] Preserve alert and notification audit history
 
-### 12. Physical Live Demonstration (Pending)
+### 12. Physical Live Demonstration (Complete — one-sensor laboratory scope)
+
 ```mermaid
 pie title Step 12 Progress
-    "Pending" : 11
+    "Complete" : 11
 ```
-PR #30 supplies compile-checked ESP32/DHT22 reference firmware and setup
-documentation for the demonstration. The checklist remains pending until the
-steps are verified on physical laboratory hardware.
-- [ ] Assemble the Arduino and IoT laboratory setup
-- [ ] Verify normal device telemetry
-- [ ] Verify live dashboard updates
-- [ ] Execute a controlled simulated suspicious scenario
-- [ ] Confirm the detection rule triggers
-- [ ] Confirm a live alert appears
-- [ ] Confirm the event is persisted as evidence
-- [ ] Confirm the incident timeline updates
-- [ ] Confirm device/entity relationships are visible
-- [ ] Confirm the captured incident can be investigated after the live event
-- [ ] Document the complete demonstration procedure
+
+Verified on 23–24 October 2026 with a Robocraze ESP32 NodeMCU 30-pin board,
+CP2102 USB interface and a three-pin DHT22 module. The module is wired directly:
++ to 3V3, − to GND and OUT to GPIO 4. A breadboard is optional.
+
+- [x] Assemble the Arduino and IoT laboratory setup
+- [x] Verify normal device telemetry
+- [x] Verify live dashboard updates
+- [x] Execute a controlled simulated suspicious scenario
+- [x] Confirm the detection rule triggers
+- [x] Confirm a live alert appears
+- [x] Confirm the event is persisted as evidence
+- [x] Confirm the incident timeline updates
+- [x] Confirm device/entity relationships are visible
+- [x] Confirm the captured incident can be investigated after the live event
+- [x] Document the complete demonstration procedure
+
+**Acceptance record:**
+
+| Check | Recorded evidence |
+| --- | --- |
+| Physical assembly and real input | The wired DHT22 produced repeatable temperature/humidity readings; HTTPS ingestion and USB capture saved real measurements. Independent sensor accuracy calibration was not performed. |
+| Live dashboard and persistence | Case 8 displayed the physical sensor; Case 9 was created automatically by USB setup and saved readings before the UI reported success. Stop/restart into existing Case 9 preserved its case and prior events. |
+| Suspicious scenario and detection | **Simulate alert** queued ten authentication failures through the common pipeline. `AUTH-001` produced persisted critical alerts, including `69238313-640c-5f8d-b49d-835f90b06b19`. Test records use `traceveil-simulator`, separate `simulated-auth-*` devices and `[SIMULATED]` titles. This is a controlled software scenario alongside real sensor input. |
+| Investigation and relationships | Case 8 Overview, Findings, Timeline and Visuals loaded persisted results; the graph showed the physical device and simulator relationships, and correlated incidents remained available for case review. |
+| Repeatable setup | **Connect & start** detects the board, installs USB firmware if needed, creates/selects a case and verifies a persisted first reading. Multiple clicks reuse an active setup. Stop/disconnect retains saved evidence. |
+
+**Demonstration procedure:** use [USB one-click setup](../hardware/esp32/USB-ONE-CLICK.md)
+for the physical capture and [the Phase 3 demo guide](phase3-live-demo.md#simulate-an-alert-from-live-monitor)
+for simulation and case review. [Hardware preparation](../hardware/esp32/PREPARE-AND-FLASH.md)
+records the earlier HTTPS acceptance. UI captures are saved under `output/`.
+
+For the next run, launch `Start Sensor.cmd` if services are closed, connect the
+USB data cable, select a new or existing case in Live Monitor and click
+**Connect & start**. The USB firmware is already installed on the tested board.
+USB mode requires the laptop and cable throughout capture; its UTC time is the
+host receipt time. Selecting another case ends the source's previous capture.
 
 ### 13. Dataset Intelligence, Classification Transparency, and Analysis UX (Complete — J3DI)
 ```mermaid
@@ -325,12 +351,12 @@ compact case rows, and the Case Overview dataset panel.
 
 ## Team Ownership & Contributions
 
-The repository contains 77 commits at the recorded `main` snapshot.
+The recorded `J3DI` snapshot contains 82 commits: 81 through `180f204` plus this documentation commit. A subsequent PR merge commit is outside these snapshot counts.
 
-**J3DI (Project Lead)** - *64 verified commits across the J3DI and J3DI-19 author identities*
+**J3DI (Project Lead)** - *69 commits across the J3DI and J3DI-19 author identities, including this documentation commit*
 - **Role:** Documentation, planning, merging, review, and integration oversight.
 - **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, local-AI runtime controls, and the compact interactive assistant workspace.
-- **Latest Delivery:** PR #30 added the one-sensor ESP32/DHT22 live telemetry reference sketch, example configuration, setup guide, and CI compile check; it was merged as `40627d2`. The earlier PR #28 integration of Steps 7 and 11 remains at `7ef17c6`.
+- **Latest Delivery:** `dfc9105`, `cb8bb60` and `fae38b8` improve report PDFs, email preview and SMTP setup; `180f204` delivers physical sensor acceptance, USB setup, live monitor improvements, alert simulation and case-loading fixes. This commit, **Finalize project delivery documentation**, reconciles the README and all three project records. Existing Ayra and Aarya ownership is preserved.
 
 **Aarya (Contributor)** - *10 Commits*
 - **Role:** Backend and Analysis Engineering
@@ -341,11 +367,11 @@ The repository contains 77 commits at the recorded `main` snapshot.
 - **Key Deliverables:** Step 5 live IoT integration; Step 7 real-time SSE delivery and safe reconnect recovery; and Step 11 alert, email, report, automation, and notification-audit workflows.
 
 ## Verification and Acceptance Record
-- **Frontend tests:** Passing
-- **Backend/API/persistence tests:** Passing
-- **TypeScript and lint:** Passing
-- **Production build:** Passing
-- **OpenAPI contract and generated frontend types:** Synchronized and passing
+- **Latest focused frontend runs:** 43 Live Monitor/setup tests and 34 case-workspace/API-client tests passed in separate runs.
+- **Latest focused backend runs:** 11 USB/configuration tests passed; separate case-query, history/reanalysis, simulation, SMTP and alert-delivery regressions also passed.
+- **Final documentation preflight:** All 155 frontend tests passed after updating app smoke tests for the completed interface; TypeScript checking, production build and OpenAPI export verification passed. Backend full-suite and integration acceptance are recorded by the final PR checks.
+- **Firmware and hardware:** USB sketch compiled and uploaded to the connected classic ESP32. Real DHT22 readings were saved before setup reported success. New-case and existing-case capture paths were both verified.
+- **Runtime email status:** The last local check reported SMTP host empty and `configured=false`. Fake SMTP verified approval, sending and alert delivery-state updates; no real email or inbox receipt was verified. Configure the provider and allowed domains before email use.
 - **Batch Usability Showcase:** Passed integration and usability gate across Steps 1, 2, 3, 4, 6, and 8.
 - **Steps 9–10 regression pass:** Full backend suite passed; full frontend suite passed (92 tests across 15 files); TypeScript lint and the production Vite build passed.
 - **Steps 7 and 11 completion pass:** The full backend suite passed 243 tests with a clean exit; all 143 frontend tests, TypeScript checking, the production build, and OpenAPI contract verification passed.
@@ -354,4 +380,14 @@ The repository contains 77 commits at the recorded `main` snapshot.
 - **Dataset acceptance:** HAI ICS (300 wide telemetry rows), IoT-23 (1,000 flows), TON_IoT refrigerator (1,000 readings), CASAS Milan (1,000 sensor events), and simulation samples are cataloged with checksums and device descriptions.
 
 ## Closeout Note
-This report is the consolidated handoff record through 25 September 2026 and the `main` merge commit `40627d2`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, real-time browser delivery, reporting and notification automation, and compile-checked ESP32/DHT22 reference firmware are embedded in the mainline codebase. Remaining roadmap work is explicitly confined to the 11 physical demonstration and hardware-acceptance items in Step 12.
+This report records delivery through 24 October 2026, including implementation
+commit `180f204` and this documentation commit, **Finalize project delivery
+documentation**, on `J3DI`.
+All 176 planned checklist items are complete for the documented one-sensor
+laboratory scope. The physical and simulated records remain distinguishable,
+USB timestamps explicitly identify laptop receipt time, and email continues to
+require investigator approval and a final send action. Real SMTP delivery and
+full post-change CI acceptance are tracked separately: real inbox receipt is
+unverified, and the final integration pull request records CI and merge results.
+This document records its own commit by subject because a commit cannot contain
+its own final SHA.
