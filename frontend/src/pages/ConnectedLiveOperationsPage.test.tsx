@@ -25,7 +25,7 @@ const settle = async (ms = 80) => {
  *  switches too early asserts against a case that never changed. The Pause
  *  button is not a proxy for this: it renders before the case list loads. */
 const selectCase = async (id: number, label: string) => {
-  await screen.findByRole("option", { name: label });
+  await waitFor(() => expect(screen.getByLabelText("Live case").querySelector(`option[value="${id}"]`)).toHaveTextContent(label));
   fireEvent.change(screen.getByLabelText("Live case"), { target: { value: String(id) } });
   await waitFor(() => expect((screen.getByLabelText("Live case") as HTMLSelectElement).value).toBe(String(id)));
 };
@@ -63,7 +63,7 @@ const timelinePage = (titles: string[]) => ({
 });
 
 /** Builds a fetch stub. `frames` are delivered once on the SSE stream. */
-function stubFetch(options: { frames?: string[]; lateFrames?: string[]; timelinePages?: unknown[]; timelineDelays?: number[]; timelineHoldUnpinned?: boolean; devicePages?: Record<string, unknown>[][]; sessionIdSwitches?: boolean; eventHold?: Promise<unknown>; alertHold?: Promise<unknown>; deviceHold?: Promise<unknown>; metricsHold?: Promise<unknown>; eventFails?: boolean; alertFails?: boolean; failAll?: boolean } = {}) {
+function stubFetch(options: { frames?: string[]; lateFrames?: string[]; timelinePages?: unknown[]; timelineDelays?: number[]; timelineHoldUnpinned?: boolean; devicePages?: Record<string, unknown>[][]; sessionIdSwitches?: boolean; sessionCompletedAfterRefresh?: boolean; eventHold?: Promise<unknown>; alertHold?: Promise<unknown>; deviceHold?: Promise<unknown>; metricsHold?: Promise<unknown>; eventFails?: boolean; alertFails?: boolean; failAll?: boolean } = {}) {
   const frames = options.frames ?? [];
   const lateFrames = options.lateFrames ?? [];
   const timelineDelays = options.timelineDelays ?? [];
@@ -143,6 +143,10 @@ function stubFetch(options: { frames?: string[]; lateFrames?: string[]; timeline
       if (delay) return new Promise(resolve => setTimeout(() => resolve(json(page)), delay));
       return json(page);
     }
+    if (url.endsWith("/simulate-alert")) {
+      return json({ simulation_id: "simulation-1", session_id: SESSION_ID, case_id: CASE_ID,
+        device_id: "simulated-auth-test", event_count: 10, receipt_ids: [], rule_id: "AUTH-001", status: "queued" });
+    }
     if (url.includes("/live-sessions")) {
       const sessionCase = Number(new URL(url, "http://traceveil.test").searchParams.get("case_id") ?? url.split("/cases/")[1]?.split("/")[0]);
       sessionCalls += 1;
@@ -150,7 +154,7 @@ function stubFetch(options: { frames?: string[]; lateFrames?: string[]; timeline
       // way a restarted capture does.
       const id = sessionCalls > 1 && sessionIdSwitches ? OTHER_SESSION_ID : SESSION_ID;
       void sessionCase;
-      return json({ items: [{ session_id: id, case_id: CASE_ID, label: "lab", source_ids: ["live-lab-01"], status: "active", stale_after_seconds: 30, accepted_count: 1, malformed_count: 0, started_at: "2026-09-14T10:00:00Z", stopped_at: null, updated_at: "2026-09-14T10:00:00Z" }], page: 1, page_size: 1, total: 1 });
+      return json({ items: [{ session_id: id, case_id: CASE_ID, label: "lab", source_ids: ["live-lab-01"], status: options.sessionCompletedAfterRefresh && sessionCalls > 1 ? "completed" : "active", stale_after_seconds: 30, accepted_count: 1, malformed_count: 0, started_at: "2026-09-14T10:00:00Z", stopped_at: null, updated_at: "2026-09-14T10:00:00Z" }], page: 1, page_size: 1, total: 1 });
     }
     if (url.includes("/live/metrics")) {
       metricsCalls += 1;
@@ -199,6 +203,43 @@ function stubFetch(options: { frames?: string[]; lateFrames?: string[]; timeline
 
 describe("ConnectedLiveOperationsPage - real-time delivery", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("updates capture status when a USB controller stops the session", async () => {
+    stubFetch({ sessionCompletedAfterRefresh: true, frames: [sseFrame(95, "session.updated", { session_id: SESSION_ID, status: "completed" })] });
+    render(<ConnectedLiveOperationsPage navigate={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "Start capture" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(screen.getByText("Capture stopped")).toBeInTheDocument();
+  });
+
+  it("queues an explicit alert simulation for the active session", async () => {
+    const harness = stubFetch();
+    render(<ConnectedLiveOperationsPage navigate={vi.fn()} />);
+    const button = await screen.findByRole("button", { name: "Simulate alert" });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    expect(await screen.findByText(/10 simulated login failures queued/)).toBeTruthy();
+    expect(harness.calls).toContain(`/api/v1/live-sessions/${SESSION_ID}/simulate-alert`);
+    expect(screen.getByRole("button", { name: "Stop capture" })).toBeTruthy();
+  });
+
+  it("shows readable input values including zero and opens the chosen record", async () => {
+    stubFetch({ frames: [sseFrame(7, "event.accepted", {
+      event_id: "EV-SENSOR-INPUT", event_type: "telemetry", observed_at: "2026-09-14T10:05:00Z",
+      device: { id: "esp32-lab-01" }, attributes: { temperature_c: 31.79999924, humidity_pct: 0 },
+    })] });
+    render(<ConnectedLiveOperationsPage navigate={vi.fn()} />);
+    expect(await screen.findByText("31.8 °C")).toBeTruthy();
+    expect(screen.getByText("0 %")).toBeTruthy();
+    const detailsToggle = screen.getByText("Details");
+    const details = detailsToggle.closest("details");
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(detailsToggle);
+    expect(details).toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "EV-SENSOR-INPUT" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close input details" }));
+    expect(details).not.toHaveAttribute("open");
+  });
 
   it("renders the backend-authored timeline fetched on load", async () => {
     stubFetch({ timelinePages: [timelinePage(["Initial persisted entry"])] });
@@ -871,8 +912,12 @@ describe("ConnectedLiveOperationsPage - real-time delivery", () => {
 
     release({ items: [], page: 1, page_size: 0, total: 0 });
 
-    expect(await screen.findByText(/More records arrived during the rebuild than could be held/i)).toBeTruthy();
-    expect(screen.queryByText(/Rebuilt from persisted state/i)).toBeNull();
+    // Inspect one render atomically: the automatic retry may legitimately
+    // finish between two separately awaited assertions.
+    await waitFor(() => {
+      expect(screen.getByText(/More records arrived during the rebuild than could be held/i)).toBeTruthy();
+      expect(screen.queryByText(/Rebuilt from persisted state/i)).toBeNull();
+    });
     // A second authoritative rebuild is triggered, exactly once.
     await waitFor(() => expect(harness.alertCalls()).toBeGreaterThan(1));
     const afterRetry = harness.alertCalls();

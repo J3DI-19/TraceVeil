@@ -3,9 +3,11 @@ import { batchApi, type ApiCase } from "../api/batch";
 import { normalizeApiError } from "../api/client";
 import { investigationApi, type TimelineRecord } from "../api/investigation";
 import { phase3Api, type DeviceState, type LiveMetrics, type LiveSession, type StreamEnvelope } from "../api/phase3";
-import { Button, MetricCard, PageHeader, Panel, StatusBadge } from "../components/ui/core";
+import { Button, PageHeader, Panel, StatusBadge } from "../components/ui/core";
+import { LiveReadings, inputMetrics, measurementEntries, metricLabel, metricValue, readingTime } from "../features/live/LiveReadings";
 import { type ConnectionState } from "../features/live/SseLiveDataSource";
 import { useLiveInvalidation } from "../features/live/useLiveInvalidation";
+import { UsbSensorSetupPanel } from "../features/live/UsbSensorSetupPanel";
 
 // Display capacity: how many records the browser is willing to hold.
 const MAX_EVENTS = 500, MAX_ALERTS = 100, MAX_PENDING = 250, MAX_IDS = 2000, MAX_TIMELINE = 50;
@@ -85,11 +87,15 @@ export function ConnectedLiveOperationsPage({ navigate, search = "" }: { navigat
   const [cases, setCases] = useState<ApiCase[]>([]); const [caseId, setCaseId] = useState<number | null>(null);
   const [session, setSession] = useState<LiveSession | null>(null); const [metrics, setMetrics] = useState<LiveMetrics | null>(null); const [devices, setDevices] = useState<DeviceState[]>([]);
   const [events, setEvents] = useState<Record<string, unknown>[]>([]); const [alerts, setAlerts] = useState<Record<string, unknown>[]>([]); const [timeline, setTimeline] = useState<TimelineRecord[]>([]);
+  const [inspectedInput, setInspectedInput] = useState<string | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simulationNotice, setSimulationNotice] = useState<string | null>(null);
   const [state, setState] = useState<ConnectionState>("disconnected"); const [paused, setPaused] = useState(false); const [dropped, setDropped] = useState(0); const [malformed, setMalformed] = useState(0); const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (session?.status !== "active") setState("disconnected"); }, [session?.status]);
   const seen = useRef(new Set<number>()); const seenOrder = useRef<number[]>([]);
   /** Discard every browser-held buffer. Used on a reset and whenever the
    *  selected case or live session changes, so nothing crosses a scope. */
-  const clearBuffers = () => { setEvents([]); setAlerts([]); seen.current.clear(); seenOrder.current = []; };
+  const clearBuffers = () => { setEvents([]); setAlerts([]); setInspectedInput(null); seen.current.clear(); seenOrder.current = []; };
   useEffect(() => { const controller = new AbortController(); void batchApi.listCases(controller.signal).then(result => { const items = Array.isArray(result.items) ? result.items : []; const requested = Number(new URLSearchParams(search).get("case")); setCases(items); setCaseId(items.some(item => item.id === requested) ? requested : (items[0]?.id ?? null)); }).catch(reason => { if (!controller.signal.aborted) setError(normalizeApiError(reason).message); }); return () => controller.abort(); }, [search]);
   useEffect(() => { if (!caseId) return; const controller = new AbortController(); void phase3Api.sessions(caseId, controller.signal).then(result => { const items = Array.isArray(result.items) ? result.items : []; setSession(items.find(item => item.status === "active") ?? items[0] ?? null); }).catch(reason => { if (!controller.signal.aborted) setError(normalizeApiError(reason).message); }); return () => controller.abort(); }, [caseId]);
   // The timeline signal carries only identifiers, so the chronology is
@@ -184,6 +190,7 @@ export function ConnectedLiveOperationsPage({ navigate, search = "" }: { navigat
     // cleared here rather than inside `clearBuffers`, which a reset also
     // calls - a reset's own explanation must survive its rebuild.
     setError(null);
+    setSimulationNotice(null);
     const controller = scopeController.current;
     return () => { generation.current += 1; controller.abort(); };
   }, [caseId, session?.session_id]);
@@ -366,6 +373,12 @@ export function ConnectedLiveOperationsPage({ navigate, search = "" }: { navigat
     if (message.topic === "alert.created") { retain("alerts", payload, MAX_ALERTS); setAlerts(current => [payload, ...current].slice(0, MAX_ALERTS)); }
     if (message.topic === "device.updated") setDevices(current => [payload as unknown as DeviceState, ...current.filter(item => item.device_id !== payload.device_id)].slice(0, 200));
     if (message.topic === "metrics.updated") refreshMetrics();
+    if (message.topic === "session.updated" && payload.session_id === session?.session_id && payload.status === "completed") {
+      const scope = captureScope();
+      if (scope) void phase3Api.sessions(scope.caseId, scope.signal).then(result => {
+        if (stillCurrent(scope)) setSession(result.items.find(item => item.session_id === scope.sessionId) ?? null);
+      }).catch(() => {});
+    }
     // The signal names the analysis the backend just persisted, so the
     // refetch asks for that snapshot by id rather than for "latest".
     if (message.topic === "timeline.updated") refreshTimeline(undefined, String(payload.analysis_id ?? "") || undefined);
@@ -406,6 +419,17 @@ export function ConnectedLiveOperationsPage({ navigate, search = "" }: { navigat
   }, [caseId, session?.session_id]);
   const start = async () => { if (!caseId) return; try { setSession(await phase3Api.startSession(caseId)); setError(null); } catch (reason) { setError(normalizeApiError(reason).message); } };
   const stop = async () => { if (!session) return; try { setSession(await phase3Api.stopSession(session.session_id)); } catch (reason) { setError(normalizeApiError(reason).message); } };
+  const simulate = async () => {
+    if (!session || session.status !== "active" || simulating) return;
+    const scope = captureScope();
+    setSimulating(true); setSimulationNotice(null);
+    try {
+      const result = await phase3Api.simulateAlert(session.session_id);
+      if (scope && stillCurrent(scope)) setSimulationNotice(`${result.event_count} simulated login failures queued. The alert will appear when the detection rule finishes.`);
+    } catch (reason) {
+      if (scope && stillCurrent(scope)) setError(normalizeApiError(reason).message);
+    } finally { setSimulating(false); }
+  };
   // Resuming replays what was buffered and then refetches, so the display
   // catches up without the stream ever having been torn down - the SSE
   // cursor is untouched by pausing, so no replay and no gap occur.
@@ -439,34 +463,57 @@ export function ConnectedLiveOperationsPage({ navigate, search = "" }: { navigat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recoveryStatus?.overflowed, recoveryOutcome]);
 
-  const stateTone = state === "connected" ? "Operational" : state === "stale" || state === "terminal-error" ? "Unavailable" : state;
+  const stateTone = state === "connected" ? "Connected" : state === "stale" || state === "terminal-error" ? "Unavailable" : state;
   const eventRows = useMemo(() => events.slice(0, 50), [events]);
-  return <><PageHeader eyebrow="Controlled telemetry · Connected API" title="Live monitor" description="Authenticated live telemetry converges into persisted canonical evidence and deterministic analysis." actions={<><select aria-label="Live case" value={caseId ?? ""} onChange={event => setCaseId(Number(event.target.value))}>{cases.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select>{session?.status === "active" ? <Button variant="danger" onClick={stop}>Stop capture</Button> : <Button variant="primary" onClick={start} disabled={!caseId}>Start capture</Button>}</>}/>
-    <div className="connection-banner live-connection-detail"><div className="radar-icon"><i/><i/><span/></div><div className="connection-copy"><span className="eyebrow">SSE connection</span><h3><StatusBadge status={stateTone}/></h3><p>{paused ? `Display paused; backend capture continues. ${live.queuedCount()} queued.` : "Accepted records stream after durable persistence."}</p></div><div className="connection-stats"><span><b>{session?.session_id.slice(0, 8) ?? "—"}</b>Session</span><span><b>{dropped}</b>Display drops</span><span><b>{malformed}</b>Stream errors</span></div></div>
+  return <div className="sensor-monitor">
+    <PageHeader eyebrow="Device workspace" title="Live monitor" description="Watch incoming readings and review what your devices are sending." actions={<>
+      <label className="monitor-case-picker"><span>Case</span><select aria-label="Live case" value={caseId ?? ""} onChange={event => setCaseId(Number(event.target.value))}>{cases.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+      <Button onClick={simulate} disabled={session?.status !== "active" || simulating} title="Queue a simulated login-failure test. Test records and the resulting alert are saved in this case.">{simulating ? "Simulating…" : "Simulate alert"}</Button>
+      {session?.status === "active" ? <Button variant="danger" onClick={stop}>Stop capture</Button> : <Button variant="primary" onClick={start} disabled={!caseId}>Start capture</Button>}
+    </>}/>
+    <UsbSensorSetupPanel cases={cases} onReady={(nextCaseId, sessionId) => {
+      void batchApi.listCases().then(result => setCases(result.items)).catch(reason => setError(normalizeApiError(reason).message));
+      setCaseId(nextCaseId);
+      void phase3Api.sessions(nextCaseId).then(result => setSession(result.items.find(item => item.session_id === sessionId) ?? null)).catch(reason => setError(normalizeApiError(reason).message));
+      navigate(`/live?case=${nextCaseId}`);
+    }}/>
+    <div className="monitor-status-bar">
+      <div><span className={`monitor-capture-dot ${session?.status === "active" ? "is-active" : ""}`}/><strong>{session?.status === "active" ? "Capture running" : "Capture stopped"}</strong><span className="monitor-stream-state">Feed <StatusBadge status={stateTone}/></span></div>
+      <Button onClick={togglePause}>{paused ? "Resume display" : "Pause display"}</Button>
+    </div>
+    {paused && <div className="monitor-paused" role="status">Display paused · {live.queuedCount()} updates queued. Capture continues in the background.</div>}
     {recoveryMessage && <div className={`state-box recovery-${recoveryOutcome}`} role="status"><strong>{recoveryOutcome === "pending" ? "Rebuilding live state" : recoveryOutcome === "complete" ? "Live state rebuilt" : "Live rebuild incomplete"}</strong><p>{recoveryMessage}</p>{pendingResources.length > 0 && <p>Still loading: {pendingResources.join(", ")}.</p>}{(recoveryOutcome === "partial" || recoveryOutcome === "failed") && <Button onClick={() => resynchronize(recoveryStatus!.reason)}>Retry rebuild</Button>}</div>}
     {error && <div className="state-box" role="alert"><strong>Live connection notice</strong><p>{error}</p></div>}
-    <div className="metrics-grid four"><MetricCard label="Devices observed" value={String(metrics?.device_count ?? 0)}/><MetricCard label="Canonical live events" value={String(metrics?.event_count ?? 0)}/><MetricCard label="Live alerts" value={String(metrics?.alert_count ?? alerts.length)} tone="danger"/><MetricCard label="Malformed inputs" value={String(metrics?.malformed_count ?? 0)}/></div>
-    <div className="monitoring-semantics"><span>Display control</span><Button onClick={togglePause}>{paused ? "Resume display" : "Pause display"}</Button><p>Pausing never stops collection or backend analysis.</p></div>
-    <div className="live-grid refined live-feed-grid"><Panel className="span-2" title="Persisted live event feed" action={<span className="streaming">● {state}</span>}>{eventRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Observed UTC</th><th>Event</th><th>Device</th><th>Evidence</th></tr></thead><tbody>{eventRows.map((item, index) => <tr key={String(item.event_id ?? index)}><td>{String(item.observed_at ?? "Unavailable")}</td><td>{String(item.event_type ?? "Unknown")}</td><td>{String((item.device as Record<string, unknown> | undefined)?.id ?? "—")}</td><td><button onClick={() => navigate(`/cases/${caseId}/events`)}>{String(item.event_id ?? "Open")}</button></td></tr>)}</tbody></table></div> : <div className="state-box"><strong>No live events yet</strong><p>Post authenticated telemetry to the active session.</p></div>}</Panel>
-      <Panel title="New deterministic alerts">{alerts.length ? alerts.slice(0, 20).map((alert, index) => <article className="alert-card" key={String(alert.alert_id ?? index)}><b>{String(alert.severity ?? "Alert")}</b><p>{String(alert.title ?? alert.rule_id ?? "Detection rule matched")}</p><button onClick={() => navigate(`/assistant?case=${caseId}&alert=${String(alert.alert_id ?? "")}`)}>Investigate</button>
-      {/* A direct path from the live feed to this alert's record, where the
-          approval-gated notification panel sits - so notifying about a live
-          alert does not require hunting for the row by hand. */}
-      <button onClick={() => navigate(`/cases/${caseId}/alerts?alert=${String(alert.alert_id ?? "")}`)}>Notify</button></article>) : <div className="state-box"><strong>No live alerts</strong><p>Only backend-qualified live alerts appear here.</p></div>}</Panel></div>
-    <div className="section-header compact"><div><h2>Incident timeline</h2><p>Rebuilt by the backend after every accepted live event; entries below are refetched from the investigation API, never assembled in the browser.</p></div></div>
-    <Panel title="Deterministic incident timeline" action={<span className="streaming">{timeline.length} entries</span>}>{timeline.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Occurred UTC</th><th>Entry</th><th>Type</th><th>Severity</th><th>Basis</th></tr></thead><tbody>{timeline.slice(0, MAX_TIMELINE).map((entry, index) => <tr key={entry.entry_id ?? index}><td>{String(entry.occurred_at ?? "Unavailable")}</td><td>{entry.title}</td><td>{entry.entry_type}</td><td>{String(entry.severity ?? "—")}</td><td>{entry.timestamp_basis}</td></tr>)}</tbody></table></div> : <div className="state-box"><strong>No timeline entries yet</strong><p>The chronology appears once the backend has analysed an accepted live event.</p></div>}</Panel>
-    <div className="section-header compact"><div><h2>Device status</h2><p>Online, Stale and Offline are backend-authored. Stale means nothing has been accepted within this session's own threshold; Offline means the device reported its link down.</p></div></div><div className="device-grid">{devices.map(device => <article className="device-card" key={`${device.session_id}-${device.device_id}`}><header><b>{device.device_id}</b><StatusBadge status={deviceStatusLabel(device)}/></header><p>{device.source_id}</p><small>Last seen {device.last_seen_at}{device.stale_after_seconds ? ` · stale after ${device.stale_after_seconds}s` : ""}</small><dl>{Object.entries(device.latest_metrics).slice(0, 4).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>)}</dl></article>)}</div></>;
-}
-
-/**
- * The three states are never collapsed. A device whose link is down can
- * still carry a recent timestamp (a retained transport message), so
- * reading recency alone would render a disconnected sensor as Online -
- * exactly the misreading that matters during a live demonstration.
- */
-function deviceStatusLabel(device: DeviceState) {
-  if (device.connection_state === "offline") return "Offline";
-  if (device.connection_state === "stale") return "Stale";
-  if (device.connection_state === "online") return "Online";
-  return device.stale ? "Stale" : "Online";
+    {simulationNotice && <div className="monitor-simulation-notice" role="status"><strong>Simulation queued</strong><p>{simulationNotice}</p><button aria-label="Dismiss simulation notice" onClick={() => setSimulationNotice(null)}>Dismiss</button></div>}
+    <LiveReadings devices={devices}/>
+    <div className="monitor-counters" aria-label="Capture totals">
+      <span><b>{metrics?.device_count ?? 0}</b> devices observed</span>
+      <span><b>{(metrics?.event_count ?? 0).toLocaleString()}</b> events saved</span>
+      <span><b>{metrics?.alert_count ?? alerts.length}</b> alerts</span>
+      {(metrics?.malformed_count ?? 0) > 0 && <span className="monitor-counter-warning"><b>{metrics?.malformed_count}</b> rejected inputs</span>}
+    </div>
+    <div className="monitor-input-layout">
+      <Panel className="monitor-input-panel" title="Incoming readings" action={<span className="monitor-subtle">Newest first · UTC</span>}>
+        {eventRows.length ? <div className="monitor-input-scroll"><table className="data-table monitor-input-table"><thead><tr><th>Time</th><th>Device / event</th><th>Input values</th><th><span className="sr-only">Record details</span></th></tr></thead><tbody>{eventRows.map((item, index) => {
+          const values = measurementEntries(inputMetrics(item));
+          const device = (item.device as Record<string, unknown> | undefined)?.id ?? (item.raw_record as Record<string, unknown> | undefined)?.device_id;
+          return <tr key={String(item.event_id ?? index)}>
+            <td><time title={String(item.observed_at ?? item.ingested_at ?? "")}>{readingTime(item.observed_at ?? item.ingested_at)}</time></td>
+            <td><strong>{String(device ?? "Unspecified device")}</strong><span className="monitor-event-type">{String(item.event_type ?? "Unknown")}</span></td>
+            <td><div className="monitor-input-values">{values.length ? values.slice(0, 4).map(([key, value]) => <span key={key}><span>{metricLabel(key)}</span><b>{metricValue(key, value)}</b></span>) : <span className="monitor-subtle">No measurements in this event</span>}</div></td>
+            <td><details className="monitor-record-details" open={inspectedInput === String(item.event_id ?? index)}><summary onClick={event => { event.preventDefault(); const id = String(item.event_id ?? index); setInspectedInput(current => current === id ? null : id); }}>Details</summary><div><button className="monitor-close-record" aria-label="Close input details" onClick={event => { setInspectedInput(null); event.currentTarget.closest("details")?.querySelector("summary")?.focus(); }}>Close</button><span className="monitor-record-label">Saved input</span><button onClick={() => navigate(`/cases/${caseId}/events`)}>{String(item.event_id ?? "Open saved event")}</button><pre>{JSON.stringify(item.raw_record ?? item, null, 2)}</pre></div></details></td>
+          </tr>;
+        })}</tbody></table></div> : <div className="monitor-empty"><strong>No incoming readings yet</strong><p>Accepted device input will appear here automatically.</p></div>}
+      </Panel>
+      <Panel className="monitor-alert-panel" title="Alerts" action={<span className="monitor-count">{metrics?.alert_count ?? alerts.length}</span>}>
+        {alerts.length ? alerts.slice(0, 20).map((alert, index) => <article className="alert-card" key={String(alert.alert_id ?? index)}><b>{String(alert.severity ?? "Alert")}</b><p>{String(alert.title ?? alert.rule_id ?? "Detection rule matched")}</p><button onClick={() => navigate(`/assistant?case=${caseId}&alert=${String(alert.alert_id ?? "")}`)}>Investigate</button><button onClick={() => navigate(`/cases/${caseId}/alerts?alert=${String(alert.alert_id ?? "")}`)}>Notify</button></article>) : <div className="monitor-alert-empty"><span aria-hidden="true">✓</span><strong>No live alerts</strong><p>Alerts appear when a detection rule matches.</p></div>}
+      </Panel>
+    </div>
+    <details className="monitor-disclosure"><summary><span>Incident timeline</span><span>{timeline.length} entries</span></summary>
+      <Panel title="Incident timeline">{timeline.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Occurred UTC</th><th>Entry</th><th>Type</th><th>Severity</th><th>Basis</th></tr></thead><tbody>{timeline.slice(0, MAX_TIMELINE).map((entry, index) => <tr key={entry.entry_id ?? index}><td>{readingTime(entry.occurred_at)}</td><td>{entry.title}</td><td>{entry.entry_type}</td><td>{String(entry.severity ?? "—")}</td><td>{entry.timestamp_basis}</td></tr>)}</tbody></table></div> : <div className="monitor-empty"><strong>No timeline entries yet</strong><p>Entries appear after accepted events are analysed.</p></div>}</Panel>
+    </details>
+    <details className="monitor-disclosure"><summary><span>Connection details</span><span>Feed health</span></summary>
+      <dl className="monitor-diagnostics"><div><dt>Session</dt><dd>{session?.session_id ?? "—"}</dd></div><div><dt>Source</dt><dd>{session?.source_ids.join(", ") ?? "—"}</dd></div><div><dt>Feed connection</dt><dd>{state}</dd></div><div><dt>Display drops</dt><dd>{dropped}</dd></div><div><dt>Stream errors</dt><dd>{malformed}</dd></div><div><dt>Rejected inputs</dt><dd>{metrics?.malformed_count ?? 0}</dd></div></dl>
+    </details>
+  </div>;
 }

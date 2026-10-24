@@ -1,6 +1,31 @@
 # Traceveil Roadmap
 
-> Current software status (25 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state, scope-isolated reconnect recovery and order-guarded timeline refresh, and approval-gated alert, notification and reporting automation with atomic terminal auditing are implemented end to end through the connected interface. The 11 remaining items are confined to physical hardware acceptance. This status is reconciled through merge commit `7ef17c6` (PR #28).
+> Current delivery status (24 October 2026): **176 of 176 planned items are complete (100%)** for the agreed one-sensor laboratory demonstration. The ESP32/DHT22 has delivered real telemetry over HTTPS and USB; controlled simulated authentication failures produced persisted findings, alerts, incidents, timelines and relationships. This record includes `180f204` and this documentation commit, **Finalize project delivery documentation**, on `J3DI`. Integration and CI status are recorded on the final pull request into `main`.
+
+## Latest delivery — 24 October 2026
+
+- `dfc9105`: structured PDF reports and a clearer generate, approve and delivery workspace.
+- `cb8bb60`: report email preview, editable drafts, attachment context and explicit approval/send controls.
+- `fae38b8`: local SMTP setup in System Status, saved configuration and password handling without returning stored passwords.
+- **Finalize project delivery documentation** (this commit): reconciles the README, roadmap, completion report and contribution record, including the current documentation commit in the snapshot counts.
+- `180f204`: readable live temperature/humidity and input values; an audited **Simulate alert** button; faster case and analysis-history loading; nonblocking stream database polling; clear timeout errors; JSON/CSV environment-list compatibility; and USB provisioning with automatic case creation or existing-case selection.
+
+**Latest validation:** the USB/setup and configuration tests passed (11 tests),
+Live Monitor/setup frontend tests passed (43 tests), and case-workspace/API-client
+frontend tests passed (34 tests). Focused case-query, history/reanalysis, live
+simulation, SMTP and alert-delivery regressions also passed in separate runs.
+The API schema/types were regenerated, the frontend production build passed,
+and the USB sketch compiled and uploaded to the physical ESP32. These focused
+runs are supplemented by the final documentation preflight: all 155 frontend
+tests, TypeScript checking, production build and OpenAPI export validation passed.
+App smoke tests now cover the final interface. Backend full-suite and integration
+acceptance are recorded by the final PR checks.
+
+**Operational follow-ups:** configure a real SMTP provider and allowed recipient
+domains and verify a real recipient receives an approved email. Full CI
+acceptance is tracked on the integration pull request. The last local SMTP check reported an empty host and
+`configured=false`; fake-SMTP tests establish delivery behavior, not real inbox
+receipt. Emails still require draft → approve → send, and simulation sends none.
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
@@ -98,9 +123,11 @@ compatibility paths.
 - [x] Verify end-to-end live ingestion
 
 **Current result:** Step 5 is complete for the authenticated HTTP laboratory
-path. Accepted telemetry is identified, validated, persisted, normalized, and
-processed through the common analysis pipeline. Physical showcase acceptance is
-still tracked under Step 12.
+path and the local USB sensor adapter. Both use validated, durable receipts and
+the common normalization and analysis pipeline. Real ESP32/DHT22 readings were
+verified in Case 8 over HTTPS and Case 9 over USB. The USB firmware uses no Wi-Fi
+credentials; its timestamps are laptop receipt times in UTC, explicitly marked
+in the raw metrics. Physical demonstration acceptance is recorded under Step 12.
 
 ## 6. Filtering, Detection, Risk and Correlation
 - [x] Add deterministic filters
@@ -198,14 +225,14 @@ cursor, and causes neither replay nor eventual duplicates.
 
 Live invalidation reaches the case workspace as well as Live Monitor through one
 shared hook, and both converge on the newest persisted analysis: a
-signal-triggered refresh asks for the exact `analysis_id` the signal named, and
-every refresh additionally takes a monotonic sequence and aborts its predecessor,
-with the sequence re-checked on resolution because a transport may ignore the
-abort — so no response-order race can regress the displayed analysis and a
-superseded refresh neither errors nor blanks the chronology. A pinned historical snapshot opens no
+Live Monitor requests the `analysis_id` named by a timeline signal. The case
+workspace refetches authoritative records and coalesces live invalidations into
+one follow-up load, allowing an initial request to finish during replay. Route
+changes and explicit refreshes abort superseded requests and check a monotonic
+sequence on resolution, so late responses cannot regress the displayed data. A pinned historical snapshot opens no
 stream and is never replaced; an open record drawer is offered a refresh rather
 than having the view swapped underneath it. Physical-hardware acceptance of live
-delivery remains Step 12. See [the Step 7 verification](step-7-verification.md).
+delivery is now recorded in Step 12. See [the Step 7 verification](step-7-verification.md).
 
 ## 8. Dashboard Results and Investigation APIs
 - [x] Create APIs for cases
@@ -349,18 +376,44 @@ tests and 8 migration tests) with a clean process exit and no leaked worker
 threads, the OpenAPI contract check, all 143 frontend tests, the TypeScript
 type-check, and the production build. See `docs/step-11-verification.md`.
 
-## 12. Physical Live Demonstration
-- [ ] Assemble the Arduino and IoT laboratory setup
-- [ ] Verify normal device telemetry
-- [ ] Verify live dashboard updates
-- [ ] Execute a controlled simulated suspicious scenario
-- [ ] Confirm the detection rule triggers
-- [ ] Confirm a live alert appears
-- [ ] Confirm the event is persisted as evidence
-- [ ] Confirm the incident timeline updates
-- [ ] Confirm device/entity relationships are visible
-- [ ] Confirm the captured incident can be investigated after the live event
-- [ ] Document the complete demonstration procedure
+## 12. Physical Live Demonstration (Complete — one-sensor laboratory scope)
+
+Verified on 23–24 October 2026 with a Robocraze ESP32 NodeMCU 30-pin board,
+CP2102 USB interface and a three-pin DHT22 module. The module is wired directly:
++ to 3V3, − to GND and OUT to GPIO 4. A breadboard is optional.
+
+- [x] Assemble the Arduino and IoT laboratory setup
+- [x] Verify normal device telemetry
+- [x] Verify live dashboard updates
+- [x] Execute a controlled simulated suspicious scenario
+- [x] Confirm the detection rule triggers
+- [x] Confirm a live alert appears
+- [x] Confirm the event is persisted as evidence
+- [x] Confirm the incident timeline updates
+- [x] Confirm device/entity relationships are visible
+- [x] Confirm the captured incident can be investigated after the live event
+- [x] Document the complete demonstration procedure
+
+**Acceptance record:**
+
+| Check | Recorded evidence |
+| --- | --- |
+| Physical assembly and real input | The wired DHT22 produced repeatable temperature/humidity readings; HTTPS ingestion and USB capture saved real measurements. Independent sensor accuracy calibration was not performed. |
+| Live dashboard and persistence | Case 8 displayed the physical sensor; Case 9 was created automatically by USB setup and saved readings before the UI reported success. Stop/restart into existing Case 9 preserved its case and prior events. |
+| Suspicious scenario and detection | **Simulate alert** queued ten authentication failures through the common pipeline. `AUTH-001` produced persisted critical alerts, including `69238313-640c-5f8d-b49d-835f90b06b19`. Test records use `traceveil-simulator`, separate `simulated-auth-*` devices and `[SIMULATED]` titles. This is a controlled software scenario alongside real sensor input. |
+| Investigation and relationships | Case 8 Overview, Findings, Timeline and Visuals loaded persisted results; the graph showed the physical device and simulator relationships, and correlated incidents remained available for case review. |
+| Repeatable setup | **Connect & start** detects the board, installs USB firmware if needed, creates/selects a case and verifies a persisted first reading. Multiple clicks reuse an active setup. Stop/disconnect retains saved evidence. |
+
+**Demonstration procedure:** use [USB one-click setup](../hardware/esp32/USB-ONE-CLICK.md)
+for the physical capture and [the Phase 3 demo guide](phase3-live-demo.md#simulate-an-alert-from-live-monitor)
+for simulation and case review. [Hardware preparation](../hardware/esp32/PREPARE-AND-FLASH.md)
+records the earlier HTTPS acceptance. UI captures are saved under `output/`.
+
+For the next run, launch `Start Sensor.cmd` if services are closed, connect the
+USB data cable, select a new or existing case in Live Monitor and click
+**Connect & start**. The USB firmware is already installed on the tested board.
+USB mode requires the laptop and cable throughout capture; its UTC time is the
+host receipt time. Selecting another case ends the source's previous capture.
 
 ## 13. Dataset Intelligence, Classification Transparency, and Analysis UX
 

@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Header, Query, Request
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.evidence.schemas import LiveTelemetryInput
 from app.core.errors import DatabaseUnavailableError
+from app.services.smtp_configuration import public_smtp_configuration, save_smtp_configuration
 from app.visualization.schemas import VisualizationResolveRequest, VisualizationResolvedV1
 
 
@@ -30,6 +32,17 @@ class LiveSessionCreate(BaseModel):
     label: str = Field(default="Controlled live capture", min_length=1, max_length=200)
     source_ids: list[str] = Field(min_length=1, max_length=20)
     stale_after_seconds: int = Field(default=30, ge=5, le=300)
+
+
+class AlertSimulationPublic(BaseModel):
+    simulation_id: UUID
+    session_id: UUID
+    case_id: int
+    device_id: str
+    event_count: int
+    receipt_ids: list[UUID]
+    rule_id: Literal["AUTH-001"]
+    status: Literal["queued"]
 
 
 class AssistantSessionCreate(BaseModel):
@@ -114,6 +127,41 @@ class EmailDraftBody(BaseModel):
     body: str = Field(min_length=1, max_length=20000)
 
 
+class SmtpConfigurationBody(BaseModel):
+    host: str = Field(default="", max_length=255)
+    port: int = Field(ge=1, le=65535)
+    starttls: bool
+    username: str = Field(default="", max_length=320)
+    password: str | None = None  # None keeps the saved password; never returned by GET.
+    clear_password: bool = False
+    from_address: str = Field(default="", max_length=320)
+    allowed_recipient_domains: list[str] = Field(default_factory=list, max_length=50)
+
+    @field_validator("host")
+    @classmethod
+    def validate_host(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(r"[A-Za-z0-9.:-]+", value):
+            raise ValueError("smtp_host_invalid")
+        return value
+
+    @field_validator("from_address")
+    @classmethod
+    def validate_sender(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(r"[^@\s]+@[^@\s]+", value):
+            raise ValueError("smtp_sender_invalid")
+        return value
+
+    @field_validator("allowed_recipient_domains")
+    @classmethod
+    def validate_domains(cls, values: list[str]) -> list[str]:
+        domains = list(dict.fromkeys(value.strip().lower() for value in values if value.strip()))
+        if any(len(domain) > 253 or not re.fullmatch(r"[a-z0-9][a-z0-9.-]*[a-z0-9]", domain) for domain in domains):
+            raise ValueError("smtp_domain_invalid")
+        return domains
+
+
 class ArtifactEmailDraftBody(BaseModel):
     """Step 11: an artifact notification needs only a recipient.
 
@@ -147,6 +195,15 @@ def get_session(session_id: UUID, request: Request):
 @router.post("/live-sessions/{session_id}/stop")
 def stop_session(session_id: UUID, request: Request):
     return service(request).stop_live_session(str(session_id), getattr(request.state, "request_id", None))
+
+
+@router.post("/live-sessions/{session_id}/simulate-alert", status_code=202)
+def simulate_alert(session_id: UUID, request: Request) -> AlertSimulationPublic:
+    try:
+        return service(request).simulate_alert(str(session_id), getattr(request.state, "request_id", None))
+    except OverflowError as exc:
+        message = "Wait five seconds before running another simulation." if str(exc) == "alert_simulation_cooldown" else "The live queue is full. Try again shortly."
+        raise HTTPException(status_code=429, detail=message) from exc
 
 
 @router.post("/live/telemetry", status_code=202)
@@ -228,7 +285,9 @@ async def live_stream(request: Request, case_id: int | None = None, session_id: 
     # A versioned control frame is emitted first instead, telling the
     # client to resynchronise from the authoritative APIs and giving it the
     # cursor to resume from.
-    reset = service(request).stream_gap(cursor_request, case_id, str(session_id) if session_id else None)
+    # SQLite can wait behind a concurrent writer. Keep those waits off the
+    # event loop so an open live stream cannot stall every HTTP request.
+    reset = await asyncio.to_thread(service(request).stream_gap, cursor_request, case_id, str(session_id) if session_id else None)
     async def generate():
         cursor, last_heartbeat = start, 0.0
         if reset is not None:
@@ -238,7 +297,7 @@ async def live_stream(request: Request, case_id: int | None = None, session_id: 
                         "payload": reset}
             yield f"id: {cursor}\nevent: stream.reset\ndata: {json.dumps(envelope, separators=(',', ':'))}\n\n"
         while not await request.is_disconnected():
-            messages = service(request).stream_after(cursor, case_id, str(session_id) if session_id else None, selected)
+            messages = await asyncio.to_thread(service(request).stream_after, cursor, case_id, str(session_id) if session_id else None, selected)
             if messages:
                 for message in messages:
                     cursor = message["stream_id"]
@@ -330,6 +389,11 @@ def get_report(report_id: UUID, request: Request):
     return service(request).get_report(str(report_id))
 
 
+@router.delete("/reports/{report_id}", status_code=204)
+def cancel_report(report_id: UUID, request: Request):
+    service(request).cancel_report(str(report_id))
+
+
 @router.post("/reports/{report_id}/generate")
 def generate_report(report_id: UUID, request: Request):
     return service(request).generate_report(str(report_id))
@@ -351,6 +415,32 @@ def export_report(report_id: UUID, request: Request):
 @router.post("/reports/{report_id}/email-drafts", status_code=201)
 def create_email_draft(report_id: UUID, body: EmailDraftBody, request: Request):
     return service(request).create_email_draft(str(report_id), str(body.recipient), body.subject, body.body)
+
+
+@router.get("/email-delivery/status")
+def email_delivery_status(request: Request):
+    return {"configured": public_smtp_configuration(service(request).settings)["configured"]}
+
+
+def require_local_smtp_control(request: Request) -> None:
+    if not request.client or request.client.host not in {"127.0.0.1", "::1", "testclient"}:
+        raise HTTPException(status_code=403, detail="SMTP setup is only available from the local computer.")
+
+
+@router.get("/email-delivery/configuration")
+def get_email_delivery_configuration(request: Request):
+    require_local_smtp_control(request)
+    return public_smtp_configuration(service(request).settings)
+
+
+@router.patch("/email-delivery/configuration")
+def update_email_delivery_configuration(body: SmtpConfigurationBody, request: Request):
+    require_local_smtp_control(request)
+    phase3 = service(request)
+    result = save_smtp_configuration(phase3.settings, request.app.state.smtp_env_path, body.model_dump())
+    phase3.audit(None, "smtp.configuration_updated", "smtp_configuration", None,
+                 details={"configured": result["configured"]})
+    return result
 
 
 # Step 11: notification drafts for deterministic alerts and live incidents.

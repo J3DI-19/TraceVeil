@@ -2,6 +2,7 @@ import { apiClient } from "./batch";
 
 export interface LiveSession { session_id: string; case_id: number; label: string; source_ids: string[]; status: "active" | "completed"; stale_after_seconds: number; accepted_count: number; malformed_count: number; started_at: string; stopped_at: string | null; updated_at: string }
 export interface LiveMetrics { case_id: number; session_id: string | null; device_count: number; event_count: number; alert_count: number; malformed_count: number; updated_at: string | null }
+export interface AlertSimulation { simulation_id: string; session_id: string; case_id: number; device_id: string; event_count: number; receipt_ids: string[]; rule_id: "AUTH-001"; status: "queued" }
 /** Backend-authored connection state. `offline` means the device reported
  *  its link down; `stale` means nothing has been accepted from it within
  *  its own session's threshold. Never inferred in the browser. */
@@ -24,6 +25,8 @@ export type AssistantVisualizationMode = "none" | "auto" | "timeline" | "severit
 export interface ReportRecord { report_id: string; case_id: number; title: string; sections: string[]; status: "draft" | "generated" | "approved"; narrative: string | null; content_hash: string | null; approved_by: string | null; approved_at: string | null; created_at: string; updated_at: string }
 export type NotificationSubject = "report" | "alert" | "incident";
 export interface EmailDraft { draft_id: string; report_id: string | null; case_id: number | null; subject_type: NotificationSubject; subject_id: string; recipient: string; subject: string; body: string; status: "draft" | "approved" | "sent" | "delivery_unknown"; approved_by: string | null; approved_at: string | null; sent_at: string | null; delivery_error: string | null }
+export interface SmtpConfiguration { host: string; port: number; starttls: boolean; username: string; password_set: boolean; from_address: string; allowed_recipient_domains: string[]; configured: boolean }
+export interface SmtpConfigurationUpdate { host: string; port: number; starttls: boolean; username: string; password: string | null; clear_password: boolean; from_address: string; allowed_recipient_domains: string[] }
 /** Backend-composed notification text, previewed before a draft exists. */
 export interface NotificationPreview { subject_type: NotificationSubject; subject_id: string; subject: string; body: string }
 export interface AuditEvent { audit_id: string; case_id: number | null; action: string; actor: string; subject_type: string; subject_id: string | null; request_id: string | null; details: Record<string, unknown>; occurred_at: string }
@@ -33,6 +36,7 @@ export const phase3Api = {
   startSession(caseId: number, sourceIds = ["live-lab-01"], signal?: AbortSignal) { return apiClient.request<LiveSession>(`/cases/${caseId}/live-sessions`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: "Controlled live capture", source_ids: sourceIds, stale_after_seconds: 30 }) }); },
   sessions(caseId: number, signal?: AbortSignal) { return apiClient.request<Page<LiveSession>>(`/cases/${caseId}/live-sessions`, { signal }); },
   stopSession(sessionId: string, signal?: AbortSignal) { return apiClient.request<LiveSession>(`/live-sessions/${sessionId}/stop`, { method: "POST", signal }); },
+  simulateAlert(sessionId: string) { return apiClient.request<AlertSimulation>(`/live-sessions/${sessionId}/simulate-alert`, { method: "POST" }); },
   metrics(caseId: number, sessionId?: string, signal?: AbortSignal) { return apiClient.request<LiveMetrics>(`/cases/${caseId}/live/metrics${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { signal }); },
   devices(caseId: number, sessionId?: string, signal?: AbortSignal) { return apiClient.request<Page<DeviceState>>(`/cases/${caseId}/live/devices${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { signal }); },
   createAssistantSession(caseIds: number[] = [], referenceIds: string[] = [], signal?: AbortSignal) { return apiClient.request<AssistantSession>("/assistant/sessions", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: referenceIds.length ? "selected_references" : caseIds.length ? "specific_case" : "auto", case_ids: caseIds, reference_ids: referenceIds }) }); },
@@ -46,9 +50,13 @@ export const phase3Api = {
   reports(caseId: number, signal?: AbortSignal) { return apiClient.request<Page<ReportRecord>>(`/cases/${caseId}/reports`, { signal }); },
   createReport(caseId: number, title: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/cases/${caseId}/reports`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) }); },
   generateReport(reportId: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/generate`, { method: "POST", signal }); },
+  cancelReport(reportId: string, signal?: AbortSignal) { return apiClient.response(`/reports/${reportId}`, { method: "DELETE", signal }); },
   approveReport(reportId: string, approver: string, signal?: AbortSignal) { return apiClient.request<ReportRecord>(`/reports/${reportId}/approve`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approver, confirmed: true }) }); },
   downloadReport(reportId: string, signal?: AbortSignal) { return apiClient.download(`/reports/${reportId}/export`, signal); },
   createEmailDraft(reportId: string, recipient: string, subject: string, body: string, signal?: AbortSignal) { return apiClient.request<EmailDraft>(`/reports/${reportId}/email-drafts`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient, subject, body }) }); },
+  emailDeliveryStatus(signal?: AbortSignal) { return apiClient.request<{ configured: boolean }>("/email-delivery/status", { signal }); },
+  emailDeliveryConfiguration(signal?: AbortSignal) { return apiClient.request<SmtpConfiguration>("/email-delivery/configuration", { signal }); },
+  updateEmailDeliveryConfiguration(configuration: SmtpConfigurationUpdate, signal?: AbortSignal) { return apiClient.request<SmtpConfiguration>("/email-delivery/configuration", { method: "PATCH", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(configuration) }); },
   // Step 11: notification drafts for a deterministic alert or live incident.
   // No report is required and no PDF is attached; the draft is pinned to the
   // artifact's content hash, so re-analysis that changes it revokes approval.

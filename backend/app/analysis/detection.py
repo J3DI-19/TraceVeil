@@ -349,10 +349,13 @@ def _detect_authentication_failures(
                 continue
             contributing = active[-config.authentication_failure_threshold :]
             span = (contributing[-1].observed_at - contributing[0].observed_at).total_seconds()
+            simulated = all(event.provenance.source_id == "traceveil-simulator"
+                            and event.attributes.get("simulated") is True for event in contributing)
             findings.append(
                 _candidate(
                     rule_id="AUTH-001",
-                    title="Repeated authentication failures",
+                    title=(f"[SIMULATED] Authentication failure test · {entity_id}"
+                           if simulated else "Repeated authentication failures"),
                     summary=(
                         f"{len(contributing)} authentication failures for {entity_id} from "
                         f"{actor_id} occurred within {span:g} seconds."

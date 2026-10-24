@@ -52,6 +52,35 @@ const timelineWindows = (label: string) => ({ items: [{ key: label, started_at: 
 describe("ConnectedCaseWorkspaceV3Page", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("finishes the initial load during a live replay and coalesces its refreshes", async () => {
+    let finishSummary!: (response: Response) => void;
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    let initialSignal: AbortSignal | null | undefined;
+    let summaryCalls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input), "http://traceveil.test").pathname;
+      if (path.endsWith("/live/stream")) return Promise.resolve(new Response(new ReadableStream({ start(controller) { stream = controller; } })));
+      if (path.endsWith("/summary")) {
+        summaryCalls += 1;
+        if (summaryCalls === 1) {
+          initialSignal = init?.signal;
+          return new Promise<Response>(resolve => { finishSummary = resolve; });
+        }
+        return Promise.resolve(jsonResponse(summary("latest")));
+      }
+      return Promise.resolve(jsonResponse(page([])));
+    }));
+    render(<ConnectedCaseWorkspaceV3Page path="/cases/7/findings" navigate={vi.fn()}/>);
+    await waitFor(() => expect(stream).toBeDefined());
+    await act(async () => { stream.enqueue(new TextEncoder().encode(Array.from({ length: 50 }, (_, i) => timelineFrame(i + 1, `analysis-${i}`)).join(""))); });
+    expect(initialSignal?.aborted).toBe(false);
+    expect(summaryCalls).toBe(1);
+    await act(async () => { finishSummary(jsonResponse(summary("initial"))); });
+    expect(await screen.findByText("Analysis completed with no findings")).toBeInTheDocument();
+    await waitFor(() => expect(summaryCalls).toBe(2));
+    expect(screen.queryByText("Loading connected data…")).not.toBeInTheDocument();
+  });
+
   it("distinguishes no analysis from a successful zero-finding analysis", async () => {
     respond({ "/cases/7/summary": summary(null), "/cases/7/findings": page([]) });
     const { unmount } = render(<ConnectedCaseWorkspaceV3Page path="/cases/7/findings" navigate={vi.fn()}/>);

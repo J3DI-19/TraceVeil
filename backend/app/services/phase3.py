@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import io
 import json
 import re
 import smtplib
@@ -17,8 +16,6 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
-from reportlab.lib.pagesizes import LETTER
-from reportlab.pdfgen.canvas import Canvas
 
 from app.core.config import Settings
 from app.db.sqlite import SQLiteRepository
@@ -34,6 +31,7 @@ from app.services.ollama import (
     OLLAMA_TEMPERATURE,
     OLLAMA_THINKING_ENABLED,
 )
+from app.services.report_pdf import build_report_pdf
 from app.visualization.service import VisualizationService
 
 
@@ -239,6 +237,60 @@ class Phase3Service:
         if len(window) >= self.settings.live_rate_limit_per_second:
             raise OverflowError("live_rate_limit_exceeded")
         window.append(now)
+
+    def simulate_alert(self, session_id: str, request_id: str | None) -> dict:
+        """Queue a fixed, auditable local test, never a fabricated alert.
+
+        The internal simulator has its own identity and no ingest token. It
+        cannot be impersonated through the authenticated telemetry endpoint,
+        and never consumes a physical source's persisted sequence numbers.
+        """
+        simulation_id = str(uuid4())
+        device_id = f"simulated-auth-{simulation_id[:8]}"
+        count = self.batch.analyzer.config.authentication_failure_threshold
+        observed = datetime.now(timezone.utc)
+        now = observed.isoformat()
+        receipts: list[str] = []
+        with self.repository.write_lock, self.db:
+            session = self.db.execute("SELECT * FROM live_sessions WHERE session_id=?", (session_id,)).fetchone()
+            if session is None:
+                raise KeyError("live_session_not_found")
+            if session["status"] != "active":
+                raise ValueError("active_live_session_required")
+            prior = self.db.execute(
+                "SELECT occurred_at FROM audit_events WHERE action='live.alert_simulation_requested' AND subject_id=? ORDER BY occurred_at DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if prior and (observed - datetime.fromisoformat(prior[0])).total_seconds() < 5:
+                raise OverflowError("alert_simulation_cooldown")
+            if self.queue.qsize() + count > self.settings.live_queue_size:
+                raise OverflowError("live_queue_full")
+            for attempt in range(1, count + 1):
+                telemetry = LiveTelemetryInput(
+                    schema_version="1.0", case_id=session["case_id"],
+                    source_id="traceveil-simulator", device_id=device_id,
+                    event_type="authentication", observed_at=observed,
+                    metrics={"action": "authenticate", "outcome": "failed", "simulated": True,
+                             "simulation_id": simulation_id, "attempt": attempt},
+                )
+                raw = canonical_json(telemetry.model_dump(mode="json"))
+                payload_hash = digest(raw)
+                receipt_id, evidence_id = str(uuid4()), str(uuid4())
+                self.db.execute(
+                    "INSERT INTO live_receipts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (receipt_id, session_id, session["case_id"], evidence_id, telemetry.source_id,
+                     device_id, None, f"simulation:{simulation_id}:{attempt}", payload_hash,
+                     raw, "queued", None, None, now, now),
+                )
+                receipts.append(receipt_id)
+            self._audit_locked(session["case_id"], "live.alert_simulation_requested", "live_session", session_id,
+                               request_id=request_id, details={"simulation_id": simulation_id, "device_id": device_id,
+                               "scenario": "authentication_failures", "event_count": count, "simulated": True})
+        for receipt_id in receipts:
+            self._enqueue("live", receipt_id)
+        return {"simulation_id": simulation_id, "session_id": session_id, "case_id": session["case_id"],
+                "device_id": device_id, "event_count": count, "receipt_ids": receipts,
+                "rule_id": "AUTH-001", "status": "queued"}
 
     def _audit_locked(self, case_id: int | None, action: str, subject_type: str, subject_id: str | None, *, actor: str = "Investigator", request_id: str | None = None, details: dict | None = None) -> None:
         """audit() without opening its own lock/transaction. MUST be called
@@ -1185,6 +1237,29 @@ class Phase3Service:
             raise KeyError("report_not_found")
         result = dict(row); result["sections"] = json.loads(result.pop("sections_json")); return result
 
+    def cancel_report(self, report_id: str) -> None:
+        with self.repository.write_lock:
+            report = self.get_report(report_id)
+            if report["status"] != "generated":
+                raise ValueError("generated_unapproved_report_required")
+            paths = {row[0] for row in self.db.execute(
+                "SELECT file_path FROM report_versions WHERE report_id=?", (report_id,)
+            ).fetchall()}
+            with self.db:
+                self.db.execute("DELETE FROM report_versions WHERE report_id=?", (report_id,))
+                self.db.execute("DELETE FROM reports WHERE report_id=?", (report_id,))
+                self._audit_locked(report["case_id"], "report.cancelled", "report", report_id,
+                                   details={"title": report["title"], "content_hash": report["content_hash"]})
+            # Generated files are content addressed and can be shared by other
+            # reports. Only remove files that have no remaining version.
+            for file_path in paths:
+                referenced = self.db.execute(
+                    "SELECT 1 FROM report_versions WHERE file_path=? LIMIT 1", (file_path,)
+                ).fetchone()
+                path = Path(file_path).resolve()
+                if not referenced and path.parent == self.report_storage:
+                    path.unlink(missing_ok=True)
+
     def generate_report(self, report_id: str) -> dict:
         report = self.get_report(report_id)
         if report["status"] == "approved":
@@ -1208,37 +1283,7 @@ class Phase3Service:
         return self.get_report(report_id)
 
     def _pdf(self, report: dict, case: dict, evidence: list[dict], artifacts: dict[str, list[dict]]) -> bytes:
-        output = io.BytesIO(); canvas = Canvas(output, pagesize=LETTER, invariant=1, pageCompression=1)
-        width, height = LETTER; y = height - 54
-        def line(text: str, size: int = 9, gap: int = 14):
-            nonlocal y
-            safe = str(text).replace("\n", " ")[:115]
-            if y < 54:
-                canvas.showPage(); y = height - 54
-            canvas.setFont("Helvetica-Bold" if size >= 14 else "Helvetica", size); canvas.drawString(54, y, safe); y -= gap
-        line("TRACEVEIL INVESTIGATION REPORT", 16, 24); line(report["title"], 14, 22)
-        line(f"Case: {case['name']} (CASE-{case['id']:04d})"); line(f"Generated UTC: {report['created_at']}"); line("Deterministic forensic results remain backend-authored."); y -= 8
-        # Step 11: the deterministic incident summaries are rendered BEFORE
-        # any AI narration, so the authoritative account is what a reader
-        # meets first and the narrative can only ever annotate it.
-        incidents = artifacts.get("incident", [])
-        if incidents:
-            line("DETERMINISTIC INCIDENT SUMMARIES", 12, 18)
-            for item in incidents[:100]:
-                identifier = item.get("incident_id") or "incident"
-                line(f"{identifier} | {item.get('summary') or 'No deterministic summary available.'}")
-        if report.get("narrative"):
-            line("AI NARRATIVE (NON-AUTHORITATIVE)", 12, 18); line(report["narrative"])
-        line("EVIDENCE REGISTER", 12, 18)
-        for item in evidence:
-            line(f"{item.get('evidence_id')} | {item.get('original_filename')} | SHA-256 {item.get('source_hash')}")
-        for heading, kind in (("FINDINGS", "finding"), ("INCIDENTS", "incident"), ("FORENSIC TIMELINE", "timeline")):
-            line(heading, 12, 18)
-            for item in artifacts.get(kind, [])[:100]:
-                identifier = item.get(f"{kind}_id") or item.get("entry_id") or "record"
-                summary = item.get("title") or item.get("summary") or item.get("event_type") or canonical_json(item)[:80]
-                line(f"{identifier} | {summary}")
-        canvas.save(); return output.getvalue()
+        return build_report_pdf(report, case, evidence, artifacts)
 
     def approve_report(self, report_id: str, approver: str) -> dict:
         report = self.get_report(report_id)
@@ -1461,7 +1506,7 @@ class Phase3Service:
     REJECTION_REASONS = {
         "approved_email_required", "email_content_changed", "approved_report_required",
         "smtp_not_configured", "recipient_domain_not_allowed", "sent_email_immutable",
-        "artifact_not_found", "unsupported_draft_subject",
+        "artifact_not_found", "unsupported_draft_subject", "delivery_outcome_unknown",
     }
 
     def _audit_rejection(self, case_id: int | None, draft: dict, reason: str,
@@ -1516,6 +1561,8 @@ class Phase3Service:
     def update_email_draft(self, draft_id: str, recipient: str, subject: str, body: str) -> dict:
         draft = self.get_email_draft(draft_id)
         anchor_case = draft["case_id"]
+        if draft["status"] == "delivery_unknown":
+            raise self._reject(anchor_case, draft, "delivery_outcome_unknown")
         if draft["sent_at"]:
             raise self._reject(anchor_case, draft, "sent_email_immutable")
         anchor = self._draft_anchor(draft)
@@ -1537,6 +1584,8 @@ class Phase3Service:
 
     def approve_email(self, draft_id: str, approver: str) -> dict:
         draft = self.get_email_draft(draft_id)
+        if draft["status"] == "delivery_unknown":
+            raise self._reject(draft["case_id"], draft, "delivery_outcome_unknown")
         if draft["sent_at"]:
             raise self._reject(draft["case_id"], draft, "sent_email_immutable")
         anchor = self._draft_anchor(draft)

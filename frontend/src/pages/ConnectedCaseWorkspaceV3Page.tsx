@@ -66,6 +66,10 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
   const [reanalyzing, setReanalyzing] = useState(false); const [reanalysisError, setReanalysisError] = useState<string | null>(null);
   const [reanalysisResult, setReanalysisResult] = useState<ReanalysisResult | null>(null);
   const loadSequence = useRef(0); const activeLoad = useRef<AbortController | null>(null); const refreshFlight = useRef(false); const reanalysisFlight = useRef(false);
+  const pendingLiveRefresh = useRef(false);
+  const liveRefresh = useRef<() => void>(() => {});
+  const loadedScope = useRef<string | null>(null);
+  const detailOpenRef = useRef(detailOpen); detailOpenRef.current = detailOpen;
   const pageSize = section === "timeline" ? timelineWindowsPerPage : section === "history" ? 25 : 50;
   const endpoint = useMemo(() => {
     if (section === "overview") return `/cases/${id}/summary`;
@@ -87,8 +91,10 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
       return null;
     }
     const requestId = ++loadSequence.current; activeLoad.current?.abort();
+    pendingLiveRefresh.current = false;
     const controller = new AbortController(); activeLoad.current = controller;
-    if (mode === "initial") { refreshFlight.current = false; setRefreshing(false); setLoading(true); } else setRefreshing(true);
+    const initialLoad = mode === "initial" || loadedScope.current !== endpoint;
+    if (initialLoad) { refreshFlight.current = false; setRefreshing(false); setLoading(true); } else setRefreshing(true);
     setError(null); setRefreshError(null);
     const summaryRequest = apiClient.request<CaseSummary>(`/cases/${id}/summary`, { signal: controller.signal });
     const dataRequest: Promise<unknown> = section === "reports" ? Promise.resolve(null) : section === "audit" ? phase3Api.audit(caseId, controller.signal) : section === "overview" ? summaryRequest : section === "visuals" ? Promise.all([
@@ -114,6 +120,7 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
     void Promise.all([summaryRequest, dataRequest, snapshotRequest, contextRequest]).then(([nextSummary, nextData, , contextData]) => {
       if (controller.signal.aborted || requestId !== loadSequence.current) return;
       setSummary(nextSummary); setData(section === "overview" ? nextSummary : nextData); setLoadedEndpoint(endpoint);
+      loadedScope.current = endpoint;
       const context = record(contextData);
       setOverviewContext(section === "overview" && context.overview ? context.overview as OverviewContext : { findings: [], alerts: [], incidents: [], evidence: [] });
       setRelatedIncidents(section === "findings" && Array.isArray(context.items) ? context.items as Record<string, unknown>[] : []);
@@ -122,14 +129,23 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
     }).catch(reason => {
       if (controller.signal.aborted || requestId !== loadSequence.current) return;
       const message = normalizeApiError(reason).message;
-      if (mode === "initial") setError(message); else setRefreshError(message);
+      if (initialLoad) setError(message); else setRefreshError(message);
     }).finally(() => {
       if (requestId !== loadSequence.current) return;
       if (activeLoad.current === controller) activeLoad.current = null;
-      if (mode === "initial") setLoading(false); else { setRefreshing(false); refreshFlight.current = false; }
+      setLoading(false); setRefreshing(false); refreshFlight.current = false;
+      if (!controller.signal.aborted && pendingLiveRefresh.current) {
+        pendingLiveRefresh.current = false;
+        liveRefresh.current();
+      }
     });
     return controller;
   }, [caseId, endpoint, id, requestedAnalysis, section, selectedAnalysisId]);
+  liveRefresh.current = () => {
+    if (activeLoad.current) { pendingLiveRefresh.current = true; return; }
+    if (detailOpenRef.current) { setLiveUpdate("pending"); return; }
+    loadWorkspace("refresh");
+  };
 
   useEffect(() => { const controller = loadWorkspace("initial"); return () => controller?.abort(); }, [loadWorkspace]);
 
@@ -146,9 +162,8 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
   //
   // The signal carries only identifiers, so every refresh re-reads the
   // investigation API. Out-of-order responses cannot regress the display:
-  // `loadWorkspace` aborts the previous request and discards any response
-  // that is no longer the newest.
-  const detailOpenRef = useRef(detailOpen); detailOpenRef.current = detailOpen;
+  // Route and manual loads discard superseded responses. Live replay
+  // coalesces into one follow-up load so it cannot starve an active request.
   const lastLiveAnalysis = useRef<string | null>(null);
   useLiveInvalidation({
     caseId: caseId || null,
@@ -160,7 +175,7 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
       if (!analysisId || analysisId === lastLiveAnalysis.current) return;
       lastLiveAnalysis.current = analysisId;
       if (detailOpenRef.current) { setLiveUpdate(analysisId); return; }
-      setLiveUpdate(null); loadWorkspace("refresh");
+      setLiveUpdate(null); liveRefresh.current();
     },
     // A reset means the stream could not be resumed, so this view may be
     // stale with no `timeline.updated` frame following to correct it.
@@ -170,7 +185,7 @@ export function ConnectedCaseWorkspaceV3Page({ path, search = "", navigate }: { 
     onReset: () => {
       lastLiveAnalysis.current = null;
       if (detailOpenRef.current) { setLiveUpdate("reset"); return; }
-      setLiveUpdate(null); loadWorkspace("refresh");
+      setLiveUpdate(null); liveRefresh.current();
     },
   });
   const applyLiveUpdate = () => { setLiveUpdate(null); setDetailOpen(false); loadWorkspace("refresh"); };

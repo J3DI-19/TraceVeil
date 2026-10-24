@@ -169,11 +169,14 @@ describe("Traceveil investigation interface", () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Live monitor" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Start capture" })).toBeEnabled());
-    expect(screen.getByText("SSE connection")).toBeInTheDocument();
-    expect(screen.getByText("Persisted live event feed")).toBeInTheDocument();
-    expect(screen.getByText("New deterministic alerts")).toBeInTheDocument();
-    expect(screen.getByText("No live events yet")).toBeInTheDocument();
-    expect(screen.getByText("Pausing never stops collection or backend analysis.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "USB sensor setup" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Latest sensor readings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Incoming readings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Alerts" })).toBeInTheDocument();
+    expect(screen.getByText("No incoming readings yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pause display" }));
+    expect(screen.getByText(/Display paused.*Capture continues in the background/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resume display" })).toBeInTheDocument();
   });
 
   it("keeps the cases register dominant and the case summary compact", async () => {
@@ -234,15 +237,17 @@ describe("Traceveil investigation interface", () => {
     window.history.replaceState({}, "", "/live?case=1");
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Live monitor" })).toBeInTheDocument();
-    expect(screen.getByText("Accepted records stream after durable persistence.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "USB sensor setup" })).toBeInTheDocument();
+    expect(screen.getByText("Watch incoming readings and review what your devices are sending.")).toBeInTheDocument();
   });
 
   it("provides approval-gated connected report delivery", async () => {
     window.history.replaceState({}, "", "/cases/1/reports");
     render(<App />);
-    expect(await screen.findByText("Reports and email")).toBeInTheDocument();
-    expect(screen.getByText(/email is never sent automatically/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Report delivery" })).toBeInTheDocument();
+    expect(screen.getByText(/review and approve it before download or email/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create report" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send/i })).not.toBeInTheDocument();
   });
 
   it("routes to a truthful empty import workflow", async () => {

@@ -37,7 +37,10 @@ export class ApiClient {
         throw new ApiClientError({ code: typeof problem?.code === "string" ? problem.code : "http_error", message: typeof problem?.message === "string" ? problem.message : `Request failed with status ${response.status}.`, retryable: typeof problem?.retryable === "boolean" ? problem.retryable : response.status >= 500 || response.status === 429, status: response.status, requestId: typeof problem?.request_id === "string" ? problem.request_id : responseRequestId, details: problem?.details ?? details });
       }
       return response;
-    } catch (error) { throw normalizeApiError(error); }
+    } catch (error) {
+      if (timeout.signal.aborted && !init.signal?.aborted) throw new ApiClientError({ code: "request_timeout", message: "The backend took too long to respond. Try again.", retryable: true });
+      throw normalizeApiError(error);
+    }
     finally { window.clearTimeout(timer); }
   }
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {

@@ -667,6 +667,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email-delivery/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Email Delivery Configuration */
+        get: operations["get_email_delivery_configuration_api_v1_email_delivery_configuration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Email Delivery Configuration */
+        patch: operations["update_email_delivery_configuration_api_v1_email_delivery_configuration_patch"];
+        trace?: never;
+    };
+    "/api/v1/email-delivery/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Email Delivery Status */
+        get: operations["email_delivery_status_api_v1_email_delivery_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/email-drafts/{draft_id}": {
         parameters: {
             query?: never;
@@ -890,6 +925,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live-sessions/{session_id}/simulate-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate Alert */
+        post: operations["simulate_alert_api_v1_live_sessions__session_id__simulate_alert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/live-sessions/{session_id}/stop": {
         parameters: {
             query?: never;
@@ -969,7 +1021,8 @@ export interface paths {
         get: operations["get_report_api_v1_reports__report_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Cancel Report */
+        delete: operations["cancel_report_api_v1_reports__report_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1037,6 +1090,74 @@ export interface paths {
         put?: never;
         /** Generate Report */
         post: operations["generate_report_api_v1_reports__report_id__generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usb-sensor/ports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ports */
+        get: operations["ports_api_v1_usb_sensor_ports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usb-sensor/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_usb_sensor_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usb-sensor/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_api_v1_usb_sensor_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usb-sensor/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_api_v1_usb_sensor_stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1179,6 +1300,37 @@ export interface components {
              * @enum {string}
              */
             workflow_status: "pending" | "acknowledged" | "resolved" | "suppressed";
+        };
+        /** AlertSimulationPublic */
+        AlertSimulationPublic: {
+            /** Case Id */
+            case_id: number;
+            /** Device Id */
+            device_id: string;
+            /** Event Count */
+            event_count: number;
+            /** Receipt Ids */
+            receipt_ids: string[];
+            /**
+             * Rule Id
+             * @constant
+             */
+            rule_id: "AUTH-001";
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Simulation Id
+             * Format: uuid
+             */
+            simulation_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "queued";
         };
         /** AlertWorkflowUpdate */
         AlertWorkflowUpdate: {
@@ -2703,6 +2855,37 @@ export interface components {
          * @enum {string}
          */
         Severity: "low" | "medium" | "high" | "critical";
+        /** SmtpConfigurationBody */
+        SmtpConfigurationBody: {
+            /** Allowed Recipient Domains */
+            allowed_recipient_domains?: string[];
+            /**
+             * Clear Password
+             * @default false
+             */
+            clear_password: boolean;
+            /**
+             * From Address
+             * @default
+             */
+            from_address: string;
+            /**
+             * Host
+             * @default
+             */
+            host: string;
+            /** Password */
+            password?: string | null;
+            /** Port */
+            port: number;
+            /** Starttls */
+            starttls: boolean;
+            /**
+             * Username
+             * @default
+             */
+            username: string;
+        };
         /**
          * SortDirection
          * @enum {string}
@@ -2775,6 +2958,50 @@ export interface components {
             record_count: number;
             /** Started At */
             started_at: string | null;
+        };
+        /** UsbPort */
+        UsbPort: {
+            /** Description */
+            description: string;
+            /** Port */
+            port: string;
+        };
+        /** UsbPorts */
+        UsbPorts: {
+            /** Items */
+            items: components["schemas"]["UsbPort"][];
+        };
+        /** UsbSetupBody */
+        UsbSetupBody: {
+            /** Case Id */
+            case_id?: number | null;
+            /**
+             * Name
+             * @default ESP32 DHT22 USB capture
+             */
+            name: string;
+            /** Port */
+            port?: string | null;
+        };
+        /** UsbStatus */
+        UsbStatus: {
+            /** Case Id */
+            case_id: number | null;
+            /** Last Reading At */
+            last_reading_at: string | null;
+            /** Message */
+            message: string;
+            /** Port */
+            port: string | null;
+            /** Readings */
+            readings: number;
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "idle" | "connecting" | "flashing" | "waiting" | "capturing" | "stopped" | "error";
         };
         /** ValidationError */
         ValidationError: {
@@ -4363,6 +4590,79 @@ export interface operations {
             };
         };
     };
+    get_email_delivery_configuration_api_v1_email_delivery_configuration_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    update_email_delivery_configuration_api_v1_email_delivery_configuration_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmtpConfigurationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    email_delivery_status_api_v1_email_delivery_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     get_email_draft_api_v1_email_drafts__draft_id__get: {
         parameters: {
             query?: never;
@@ -4821,6 +5121,37 @@ export interface operations {
             };
         };
     };
+    simulate_alert_api_v1_live_sessions__session_id__simulate_alert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSimulationPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stop_session_api_v1_live_sessions__session_id__stop_post: {
         parameters: {
             query?: never;
@@ -4980,6 +5311,35 @@ export interface operations {
             };
         };
     };
+    cancel_report_api_v1_reports__report_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_report_api_v1_reports__report_id__approve_post: {
         parameters: {
             query?: never;
@@ -5108,6 +5468,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ports_api_v1_usb_sensor_ports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsbPorts"];
+                };
+            };
+        };
+    };
+    start_api_v1_usb_sensor_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsbSetupBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsbStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_api_v1_usb_sensor_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsbStatus"];
+                };
+            };
+        };
+    };
+    stop_api_v1_usb_sensor_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsbStatus"];
                 };
             };
         };

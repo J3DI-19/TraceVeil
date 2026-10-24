@@ -17,6 +17,22 @@ python simulate_live.py --scenario suspicious --count 10 --token replace-with-a-
 
 The simulator creates a case and capture session when `--case-id` is omitted. The suspicious scenario sends ten authentication failures inside the deterministic rule window and should produce a persisted `AUTH-001` alert. The malformed scenario produces an ingestion issue, not a canonical event. Reusing an identical source sequence within a session produces a duplicate receipt.
 
+## Simulate an alert from Live Monitor
+
+**Simulate alert** is enabled during an active capture. It calls
+`POST /api/v1/live-sessions/{session_id}/simulate-alert`. The backend queues
+authentication-failure events under the `traceveil-simulator` source and a
+separate `simulated-auth-*` device. The event count follows the configured
+`AUTH-001` threshold. The normal worker, normalizer and detector produce the
+saved alert; the endpoint returns 202/`queued`, not a claim of finished detection.
+
+Test events retain `simulated: true` and a simulation ID. Alerts are titled
+`[SIMULATED]`, and each run is audited. Repeats within five seconds return 429;
+stopped captures reject simulation requests. The internal simulator has no
+external ingestion token and does not consume physical device sequences.
+Test records remain in the selected case and its later analysis and reports.
+The button does not send email.
+
 ## Browser and historical review
 
 Open the URL printed by the simulator. The live screen reconnects with `Last-Event-ID`, bounds its display buffers, and can pause rendering without stopping backend capture. Stop capture from the browser, then open the case event, alert, timeline, graph, analytics, report, and audit tabs to confirm historical persistence.
