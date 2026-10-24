@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     @classmethod
     def parse_frontend_origins(cls, value: object) -> object:
         if isinstance(value, str):
+            if value.strip().startswith("["):
+                return json.loads(value)
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
@@ -68,6 +70,8 @@ class Settings(BaseSettings):
     @classmethod
     def parse_recipient_domains(cls, value: object) -> object:
         if isinstance(value, str):
+            if value.strip().startswith("["):
+                return [item.strip().lower() for item in json.loads(value)]
             return [item.strip().lower() for item in value.split(",") if item.strip()]
         return value
 

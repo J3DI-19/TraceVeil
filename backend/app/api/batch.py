@@ -82,22 +82,25 @@ def public_issue(row) -> dict:
     return {"level":item["level"],"code":item["error_code"],"message":item["message"],"row_number":item["row_number"],"field":item["field_name"],"rejected_value":item["rejected_value"]}
 
 def analysis_snapshot(row, *, is_latest: bool, reused_existing: bool | None = None) -> dict:
-    result=AnalysisResult.model_validate_json(row["result_json"])
+    # The result was validated before persistence. History only needs its
+    # metadata; rebuilding every timeline, graph and correlation model here
+    # makes a page of live snapshots unnecessarily expensive.
+    result=json.loads(row["result_json"])
     fingerprint_payload={
-        "case_id":result.case_id,
-        "event_ids":[str(event_id) for event_id in result.event_ids],
-        "configuration":result.configuration.model_dump(mode="json"),
-        "filter":result.filter.model_dump(mode="json"),
-        "analysis_version":result.analysis_version,
-        "rule_set_version":result.rule_set_version,
+        "case_id":result["case_id"],
+        "event_ids":result["event_ids"],
+        "configuration":result["configuration"],
+        "filter":result["filter"],
+        "analysis_version":result["analysis_version"],
+        "rule_set_version":result["rule_set_version"],
     }
     payload={
-        "analysis_id":result.analysis_id,"case_id":result.case_id,"status":row["status"],
+        "analysis_id":result["analysis_id"],"case_id":result["case_id"],"status":row["status"],
         "created_at":row["created_at"],
         "input_fingerprint":sha256(json.dumps(fingerprint_payload,sort_keys=True,separators=(",",":")).encode()).hexdigest(),
-        "input_event_count":result.input_event_count,"finding_count":len(result.findings),
-        "alert_count":len(result.alerts),"incident_count":len(result.incidents),
-        "maximum_risk":max((finding.risk.score for finding in result.findings),default=0),
+        "input_event_count":result["input_event_count"],"finding_count":len(result["findings"]),
+        "alert_count":len(result["alerts"]),"incident_count":len(result["incidents"]),
+        "maximum_risk":max((finding["risk"]["score"] for finding in result["findings"]),default=0),
         "is_latest":is_latest,
     }
     if reused_existing is not None: payload["reused_existing"]=reused_existing

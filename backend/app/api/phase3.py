@@ -34,6 +34,17 @@ class LiveSessionCreate(BaseModel):
     stale_after_seconds: int = Field(default=30, ge=5, le=300)
 
 
+class AlertSimulationPublic(BaseModel):
+    simulation_id: UUID
+    session_id: UUID
+    case_id: int
+    device_id: str
+    event_count: int
+    receipt_ids: list[UUID]
+    rule_id: Literal["AUTH-001"]
+    status: Literal["queued"]
+
+
 class AssistantSessionCreate(BaseModel):
     scope: Literal["auto", "all_cases", "specific_case", "selected_references"] = "auto"
     case_ids: list[int] = Field(default_factory=list, max_length=10)
@@ -186,6 +197,15 @@ def stop_session(session_id: UUID, request: Request):
     return service(request).stop_live_session(str(session_id), getattr(request.state, "request_id", None))
 
 
+@router.post("/live-sessions/{session_id}/simulate-alert", status_code=202)
+def simulate_alert(session_id: UUID, request: Request) -> AlertSimulationPublic:
+    try:
+        return service(request).simulate_alert(str(session_id), getattr(request.state, "request_id", None))
+    except OverflowError as exc:
+        message = "Wait five seconds before running another simulation." if str(exc) == "alert_simulation_cooldown" else "The live queue is full. Try again shortly."
+        raise HTTPException(status_code=429, detail=message) from exc
+
+
 @router.post("/live/telemetry", status_code=202)
 async def receive_telemetry(request: Request, x_traceveil_source_token: str = Header(alias="X-Traceveil-Source-Token")):
     raw = await request.body()
@@ -265,7 +285,9 @@ async def live_stream(request: Request, case_id: int | None = None, session_id: 
     # A versioned control frame is emitted first instead, telling the
     # client to resynchronise from the authoritative APIs and giving it the
     # cursor to resume from.
-    reset = service(request).stream_gap(cursor_request, case_id, str(session_id) if session_id else None)
+    # SQLite can wait behind a concurrent writer. Keep those waits off the
+    # event loop so an open live stream cannot stall every HTTP request.
+    reset = await asyncio.to_thread(service(request).stream_gap, cursor_request, case_id, str(session_id) if session_id else None)
     async def generate():
         cursor, last_heartbeat = start, 0.0
         if reset is not None:
@@ -275,7 +297,7 @@ async def live_stream(request: Request, case_id: int | None = None, session_id: 
                         "payload": reset}
             yield f"id: {cursor}\nevent: stream.reset\ndata: {json.dumps(envelope, separators=(',', ':'))}\n\n"
         while not await request.is_disconnected():
-            messages = service(request).stream_after(cursor, case_id, str(session_id) if session_id else None, selected)
+            messages = await asyncio.to_thread(service(request).stream_after, cursor, case_id, str(session_id) if session_id else None, selected)
             if messages:
                 for message in messages:
                     cursor = message["stream_id"]

@@ -1,5 +1,9 @@
 # One-sensor ESP32 demo (recommended for Step 12)
 
+For the first assembly and USB-only sensor check, start with
+[prepare and flash](../PREPARE-AND-FLASH.md). The standalone test sketch is
+`../dht22_usb_test/dht22_usb_test.ino`; it needs no Wi-Fi or backend setup.
+
 This is the default physical demo sketch. It reads one DHT22/AM2302 and
 POSTs real `temperature_c` and `humidity_pct` measurements to the existing
 `/api/v1/live/telemetry` endpoint over HTTPS. The original multi-device

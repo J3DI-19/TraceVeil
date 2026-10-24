@@ -2,6 +2,7 @@ import { apiClient } from "./batch";
 
 export interface LiveSession { session_id: string; case_id: number; label: string; source_ids: string[]; status: "active" | "completed"; stale_after_seconds: number; accepted_count: number; malformed_count: number; started_at: string; stopped_at: string | null; updated_at: string }
 export interface LiveMetrics { case_id: number; session_id: string | null; device_count: number; event_count: number; alert_count: number; malformed_count: number; updated_at: string | null }
+export interface AlertSimulation { simulation_id: string; session_id: string; case_id: number; device_id: string; event_count: number; receipt_ids: string[]; rule_id: "AUTH-001"; status: "queued" }
 /** Backend-authored connection state. `offline` means the device reported
  *  its link down; `stale` means nothing has been accepted from it within
  *  its own session's threshold. Never inferred in the browser. */
@@ -35,6 +36,7 @@ export const phase3Api = {
   startSession(caseId: number, sourceIds = ["live-lab-01"], signal?: AbortSignal) { return apiClient.request<LiveSession>(`/cases/${caseId}/live-sessions`, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: "Controlled live capture", source_ids: sourceIds, stale_after_seconds: 30 }) }); },
   sessions(caseId: number, signal?: AbortSignal) { return apiClient.request<Page<LiveSession>>(`/cases/${caseId}/live-sessions`, { signal }); },
   stopSession(sessionId: string, signal?: AbortSignal) { return apiClient.request<LiveSession>(`/live-sessions/${sessionId}/stop`, { method: "POST", signal }); },
+  simulateAlert(sessionId: string) { return apiClient.request<AlertSimulation>(`/live-sessions/${sessionId}/simulate-alert`, { method: "POST" }); },
   metrics(caseId: number, sessionId?: string, signal?: AbortSignal) { return apiClient.request<LiveMetrics>(`/cases/${caseId}/live/metrics${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { signal }); },
   devices(caseId: number, sessionId?: string, signal?: AbortSignal) { return apiClient.request<Page<DeviceState>>(`/cases/${caseId}/live/devices${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`, { signal }); },
   createAssistantSession(caseIds: number[] = [], referenceIds: string[] = [], signal?: AbortSignal) { return apiClient.request<AssistantSession>("/assistant/sessions", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: referenceIds.length ? "selected_references" : caseIds.length ? "specific_case" : "auto", case_ids: caseIds, reference_ids: referenceIds }) }); },

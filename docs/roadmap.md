@@ -1,6 +1,6 @@
 # Traceveil Roadmap
 
-> Current software status (25 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state, scope-isolated reconnect recovery and order-guarded timeline refresh, and approval-gated alert, notification and reporting automation with atomic terminal auditing are implemented end to end through the connected interface. The 11 remaining items are confined to physical hardware acceptance. This status is reconciled through merge commit `7ef17c6` (PR #28).
+> Current software status (25 September 2026): 165 of 176 roadmap items are complete (93.8%). The persisted batch workflow, authenticated live intake, deterministic investigation APIs, curated evaluation datasets, classification transparency, case-analysis UX, safe message-linked visualization engine, grounded local-AI investigation chat, real-time browser delivery with backend-authored device state, scope-isolated reconnect recovery and order-guarded timeline refresh, approval-gated alert, notification and reporting automation with atomic terminal auditing, and an example one-sensor ESP32 telemetry sketch are implemented. The 11 remaining items are physical demonstration and hardware acceptance. This status is reconciled through merge commit `40627d2` (PR #30).
 
 ## 1. Initialization
 - [x] Set up React + Vite frontend
@@ -100,7 +100,10 @@ compatibility paths.
 **Current result:** Step 5 is complete for the authenticated HTTP laboratory
 path. Accepted telemetry is identified, validated, persisted, normalized, and
 processed through the common analysis pipeline. Physical showcase acceptance is
-still tracked under Step 12.
+still tracked under Step 12. The repository also includes a configurable
+ESP32/DHT22 one-sensor HTTP reference sketch and setup guide; CI compiles the
+sketch against the checked-in example configuration. This makes the firmware
+path reproducible, but does not record physical-hardware acceptance.
 
 ## 6. Filtering, Detection, Risk and Correlation
 - [x] Add deterministic filters
@@ -350,6 +353,10 @@ threads, the OpenAPI contract check, all 143 frontend tests, the TypeScript
 type-check, and the production build. See `docs/step-11-verification.md`.
 
 ## 12. Physical Live Demonstration
+The ESP32/DHT22 reference firmware, example configuration, and wiring/setup
+notes are available in `hardware/esp32/traceveil_dht22/`. CI verifies that the
+sketch compiles; all 11 physical demonstration and acceptance checks below
+remain pending until performed on the laboratory hardware.
 - [ ] Assemble the Arduino and IoT laboratory setup
 - [ ] Verify normal device telemetry
 - [ ] Verify live dashboard updates

@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-09-25
 
-**Repository snapshot:** `7ef17c6` on branch `main`
+**Repository snapshot:** `40627d2` on branch `main`
 
-**Commit count:** 73
+**Commit count:** 77
 
 This record combines author names that use the same verified email identity. In
 particular, `J3DI` and `J3DI-19` are reported together as J3DI.
@@ -22,7 +22,7 @@ pie title Commit Authorship at the Recorded Snapshot
 
 **Assigned steps:** 01, 02, 09, 10, plus cross-cutting integration and delivery
 
-**Verified commits:** 60
+**Verified commits:** 64
 
 ### Allocated project-wide ownership
 
@@ -78,9 +78,18 @@ pie title Commit Authorship at the Recorded Snapshot
 - **Steps 7 and 11 integration:** Reviewed and merged PR #28, bringing the
   completed real-time delivery, reconnect recovery, reporting, notification,
   automation, and audit workflows into `main` at `7ef17c6`.
+- **ESP32 live telemetry reference:** Added the configurable one-sensor
+  ESP32/DHT22 HTTP sketch, example configuration, wiring and setup guide, and
+  CI compilation check in PR #30, merged into `main` at `40627d2`.
 
 ### Most recent verified commits
 
+- `40627d2` (2026-09-25) — **Merge PR #30.** Integrated the ESP32/DHT22
+  one-sensor live telemetry reference sketch and its CI compile check.
+- `320c56e` (2026-09-25) — **Add one-sensor ESP32 live telemetry sketch.** Added
+  the firmware, example configuration, and wiring/setup documentation.
+- `f8e8e31` (2026-09-25) — **Merge PR #29.** Integrated refreshed roadmap and
+  completion records.
 - `7ef17c6` (2026-09-23) — **Merge PR #28.** Integrated the completed Steps 7
   and 11 implementation and verification records into `main`.
 - `7ef1aac` (2026-09-13) — **Merge PR #19.** Integrated the application-shell
@@ -197,8 +206,8 @@ pie title Commit Authorship at the Recorded Snapshot
 
 ## Attribution note
 
-Counts above come from `git shortlog -sne main` at `7ef17c6`. The J3DI total
-combines 44 commits authored as `J3DI` and 16 authored as `J3DI-19`, which share
+Counts above come from `git shortlog -sne main` at `40627d2`. The J3DI total
+combines 46 commits authored as `J3DI` and 18 authored as `J3DI-19`, which share
 the verified `j3di.legend@gmail.com` identity. Feature ownership
 is based on the committed diff and the agreed assigned steps; a checked roadmap
 item records delivery ownership and does not erase earlier foundational work by

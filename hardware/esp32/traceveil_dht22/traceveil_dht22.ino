@@ -29,10 +29,26 @@ static void halt(const char* reason) {
 static bool connect_wifi() {
   if (WiFi.status() == WL_CONNECTED) return true;
   WiFi.mode(WIFI_STA);
+  // This USB-powered demo favors a stable link over modem power saving.
+  WiFi.setSleep(false);
   WiFi.begin(TV_WIFI_SSID, TV_WIFI_PSK);
   const unsigned long started = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - started < 15000UL) delay(200);
+  while (WiFi.status() != WL_CONNECTED && millis() - started < 30000UL) delay(200);
   return WiFi.status() == WL_CONNECTED;
+}
+
+static void diagnose_wifi() {
+  // Network names help distinguish an SSID typo from a missing 2.4 GHz AP.
+  // Never print the Wi-Fi password or source token.
+  Serial.printf("Wi-Fi join failed for SSID=%s; status=%d\n", TV_WIFI_SSID, (int)WiFi.status());
+  WiFi.disconnect();
+  delay(200);
+  const int count = WiFi.scanNetworks();
+  Serial.printf("Visible 2.4 GHz networks: %d\n", count);
+  for (int index = 0; index < count; ++index) {
+    Serial.printf("  SSID=%s signal=%d dBm\n", WiFi.SSID(index).c_str(), WiFi.RSSI(index));
+  }
+  WiFi.scanDelete();
 }
 
 static void synchronize_clock() {
@@ -70,6 +86,11 @@ static bool post_pending() {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Traceveil-Source-Token", TV_SOURCE_TOKEN);
   const int status = http.POST((uint8_t*)pending_body.c_str(), pending_body.length());
+  if (status < 0) {
+    char tls_error[160] = {0};
+    const int tls_status = client.lastError(tls_error, sizeof(tls_error));
+    Serial.printf("transport error=%s TLS=%d %s\n", HTTPClient::errorToString(status).c_str(), tls_status, tls_error);
+  }
   http.end();
   if (status == 202) {
     Serial.printf("accepted sequence=%lu\n", (unsigned long)sequence_number);
@@ -110,6 +131,9 @@ static void sample() {
 
 void setup() {
   Serial.begin(115200);
+  WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t info) {
+    Serial.printf("Wi-Fi disconnected reason=%u\n", info.wifi_sta_disconnected.reason);
+  }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   sensor.begin();
   if (TV_CASE_ID < 1 || strlen(TV_SOURCE_ID) == 0 ||
       strstr(TV_SOURCE_TOKEN, "replace-with") != nullptr ||
@@ -119,7 +143,11 @@ void setup() {
   }
   if (!nvs.begin("traceveil", false)) halt("cannot open NVS");
   sequence_number = nvs.getUInt("seq", 0);
-  if (!connect_wifi()) halt("Wi-Fi unavailable at boot");
+  if (!connect_wifi()) {
+    diagnose_wifi();
+    halt("Wi-Fi unavailable at boot; check exact SSID, password and 2.4 GHz coverage");
+  }
+  Serial.printf("Wi-Fi connected; device IP=%s signal=%d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
   synchronize_clock();
   Serial.println("DHT22 capture ready");
   last_sample_ms = millis() - TV_SAMPLE_INTERVAL_MS; // first reading immediately

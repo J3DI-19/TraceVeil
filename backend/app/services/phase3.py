@@ -238,6 +238,60 @@ class Phase3Service:
             raise OverflowError("live_rate_limit_exceeded")
         window.append(now)
 
+    def simulate_alert(self, session_id: str, request_id: str | None) -> dict:
+        """Queue a fixed, auditable local test, never a fabricated alert.
+
+        The internal simulator has its own identity and no ingest token. It
+        cannot be impersonated through the authenticated telemetry endpoint,
+        and never consumes a physical source's persisted sequence numbers.
+        """
+        simulation_id = str(uuid4())
+        device_id = f"simulated-auth-{simulation_id[:8]}"
+        count = self.batch.analyzer.config.authentication_failure_threshold
+        observed = datetime.now(timezone.utc)
+        now = observed.isoformat()
+        receipts: list[str] = []
+        with self.repository.write_lock, self.db:
+            session = self.db.execute("SELECT * FROM live_sessions WHERE session_id=?", (session_id,)).fetchone()
+            if session is None:
+                raise KeyError("live_session_not_found")
+            if session["status"] != "active":
+                raise ValueError("active_live_session_required")
+            prior = self.db.execute(
+                "SELECT occurred_at FROM audit_events WHERE action='live.alert_simulation_requested' AND subject_id=? ORDER BY occurred_at DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if prior and (observed - datetime.fromisoformat(prior[0])).total_seconds() < 5:
+                raise OverflowError("alert_simulation_cooldown")
+            if self.queue.qsize() + count > self.settings.live_queue_size:
+                raise OverflowError("live_queue_full")
+            for attempt in range(1, count + 1):
+                telemetry = LiveTelemetryInput(
+                    schema_version="1.0", case_id=session["case_id"],
+                    source_id="traceveil-simulator", device_id=device_id,
+                    event_type="authentication", observed_at=observed,
+                    metrics={"action": "authenticate", "outcome": "failed", "simulated": True,
+                             "simulation_id": simulation_id, "attempt": attempt},
+                )
+                raw = canonical_json(telemetry.model_dump(mode="json"))
+                payload_hash = digest(raw)
+                receipt_id, evidence_id = str(uuid4()), str(uuid4())
+                self.db.execute(
+                    "INSERT INTO live_receipts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (receipt_id, session_id, session["case_id"], evidence_id, telemetry.source_id,
+                     device_id, None, f"simulation:{simulation_id}:{attempt}", payload_hash,
+                     raw, "queued", None, None, now, now),
+                )
+                receipts.append(receipt_id)
+            self._audit_locked(session["case_id"], "live.alert_simulation_requested", "live_session", session_id,
+                               request_id=request_id, details={"simulation_id": simulation_id, "device_id": device_id,
+                               "scenario": "authentication_failures", "event_count": count, "simulated": True})
+        for receipt_id in receipts:
+            self._enqueue("live", receipt_id)
+        return {"simulation_id": simulation_id, "session_id": session_id, "case_id": session["case_id"],
+                "device_id": device_id, "event_count": count, "receipt_ids": receipts,
+                "rule_id": "AUTH-001", "status": "queued"}
+
     def _audit_locked(self, case_id: int | None, action: str, subject_type: str, subject_id: str | None, *, actor: str = "Investigator", request_id: str | None = None, details: dict | None = None) -> None:
         """audit() without opening its own lock/transaction. MUST be called
         while already holding self.repository.write_lock inside an open

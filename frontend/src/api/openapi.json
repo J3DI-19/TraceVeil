@@ -290,6 +290,62 @@
         "title": "Alert",
         "type": "object"
       },
+      "AlertSimulationPublic": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "receipt_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Receipt Ids",
+            "type": "array"
+          },
+          "rule_id": {
+            "const": "AUTH-001",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "simulation_id": {
+            "format": "uuid",
+            "title": "Simulation Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "queued",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "simulation_id",
+          "session_id",
+          "case_id",
+          "device_id",
+          "event_count",
+          "receipt_ids",
+          "rule_id",
+          "status"
+        ],
+        "title": "AlertSimulationPublic",
+        "type": "object"
+      },
       "AlertWorkflowUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -4247,6 +4303,68 @@
         "title": "Severity",
         "type": "string"
       },
+      "SmtpConfigurationBody": {
+        "properties": {
+          "allowed_recipient_domains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allowed Recipient Domains",
+            "type": "array"
+          },
+          "clear_password": {
+            "default": false,
+            "title": "Clear Password",
+            "type": "boolean"
+          },
+          "from_address": {
+            "default": "",
+            "maxLength": 320,
+            "title": "From Address",
+            "type": "string"
+          },
+          "host": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Host",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "port": {
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "starttls": {
+            "title": "Starttls",
+            "type": "boolean"
+          },
+          "username": {
+            "default": "",
+            "maxLength": 320,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "starttls"
+        ],
+        "title": "SmtpConfigurationBody",
+        "type": "object"
+      },
       "SortDirection": {
         "enum": [
           "asc",
@@ -4485,6 +4603,159 @@
           "peak_severity"
         ],
         "title": "TimelineWindowPublic",
+        "type": "object"
+      },
+      "UsbPort": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "description"
+        ],
+        "title": "UsbPort",
+        "type": "object"
+      },
+      "UsbPorts": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsbPort"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "UsbPorts",
+        "type": "object"
+      },
+      "UsbSetupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "name": {
+            "default": "ESP32 DHT22 USB capture",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          }
+        },
+        "title": "UsbSetupBody",
+        "type": "object"
+      },
+      "UsbStatus": {
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "last_reading_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reading At"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "readings": {
+            "title": "Readings",
+            "type": "integer"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "connecting",
+              "flashing",
+              "waiting",
+              "capturing",
+              "stopped",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "message",
+          "port",
+          "case_id",
+          "session_id",
+          "last_reading_at",
+          "readings"
+        ],
+        "title": "UsbStatus",
         "type": "object"
       },
       "ValidationError": {
@@ -7681,6 +7952,81 @@
         ]
       }
     },
+    "/api/v1/email-delivery/configuration": {
+      "get": {
+        "operationId": "get_email_delivery_configuration_api_v1_email_delivery_configuration_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Email Delivery Configuration",
+        "tags": [
+          "phase3"
+        ]
+      },
+      "patch": {
+        "operationId": "update_email_delivery_configuration_api_v1_email_delivery_configuration_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmtpConfigurationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Email Delivery Configuration",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
+    "/api/v1/email-delivery/status": {
+      "get": {
+        "operationId": "email_delivery_status_api_v1_email_delivery_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Email Delivery Status",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
     "/api/v1/email-drafts/{draft_id}": {
       "get": {
         "operationId": "get_email_draft_api_v1_email_drafts__draft_id__get",
@@ -8284,6 +8630,49 @@
         ]
       }
     },
+    "/api/v1/live-sessions/{session_id}/simulate-alert": {
+      "post": {
+        "operationId": "simulate_alert_api_v1_live_sessions__session_id__simulate_alert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSimulationPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate Alert",
+        "tags": [
+          "phase3"
+        ]
+      }
+    },
     "/api/v1/live-sessions/{session_id}/stop": {
       "post": {
         "operationId": "stop_session_api_v1_live_sessions__session_id__stop_post",
@@ -8497,6 +8886,40 @@
       }
     },
     "/api/v1/reports/{report_id}": {
+      "delete": {
+        "operationId": "cancel_report_api_v1_reports__report_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Report",
+        "tags": [
+          "phase3"
+        ]
+      },
       "get": {
         "operationId": "get_report_api_v1_reports__report_id__get",
         "parameters": [
@@ -8718,6 +9141,110 @@
         "summary": "Generate Report",
         "tags": [
           "phase3"
+        ]
+      }
+    },
+    "/api/v1/usb-sensor/ports": {
+      "get": {
+        "operationId": "ports_api_v1_usb_sensor_ports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsbPorts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ports",
+        "tags": [
+          "usb-sensor"
+        ]
+      }
+    },
+    "/api/v1/usb-sensor/start": {
+      "post": {
+        "operationId": "start_api_v1_usb_sensor_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsbSetupBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsbStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "usb-sensor"
+        ]
+      }
+    },
+    "/api/v1/usb-sensor/status": {
+      "get": {
+        "operationId": "status_api_v1_usb_sensor_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsbStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "usb-sensor"
+        ]
+      }
+    },
+    "/api/v1/usb-sensor/stop": {
+      "post": {
+        "operationId": "stop_api_v1_usb_sensor_stop_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsbStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop",
+        "tags": [
+          "usb-sensor"
         ]
       }
     },

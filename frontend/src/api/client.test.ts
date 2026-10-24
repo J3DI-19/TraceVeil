@@ -4,6 +4,16 @@ import { ApiClient, normalizeApiError, serializeQuery } from "./client";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("API client foundation", () => {
+  it("distinguishes a backend timeout from explicit cancellation", async () => {
+    vi.stubGlobal("fetch", vi.fn((_input, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+    })));
+    await expect(new ApiClient("/api", 5).request("/slow")).rejects.toMatchObject({ code: "request_timeout", message: "The backend took too long to respond. Try again." });
+    const controller = new AbortController();
+    const request = new ApiClient("/api", 100).request("/cancel", { signal: controller.signal });
+    controller.abort();
+    await expect(request).rejects.toMatchObject({ code: "request_cancelled" });
+  });
   it("serializes defined query values only", () => {
     expect(serializeQuery({ page: 2, filter: undefined, active: false, empty: null })).toBe("?page=2&active=false");
   });

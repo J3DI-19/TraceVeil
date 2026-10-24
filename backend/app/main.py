@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.batch import router as batch_router
 from app.api.phase3 import router as phase3_router
+from app.api.usb_sensor import router as usb_sensor_router
+from app.services.usb_sensor import UsbSensorSetup
 from app.services.batch import BatchInvestigationService
 from app.services.phase3 import Phase3Service
 from app.analysis.service import AnalysisService
@@ -32,6 +34,7 @@ async def lifespan(app: FastAPI):
     app.state.analysis_service = None
     app.state.batch_service = None
     app.state.phase3_service = None
+    app.state.usb_sensor = None
     try:
         repository.initialize()
     except (sqlite3.Error, OSError):
@@ -47,7 +50,10 @@ async def lifespan(app: FastAPI):
         app.state.analysis_service = AnalysisService()
         app.state.batch_service = BatchInvestigationService(repository, settings.evidence_storage_path, settings.max_evidence_file_bytes, settings.max_validation_issues)
         app.state.phase3_service = Phase3Service(repository, app.state.batch_service, settings)
+        app.state.usb_sensor = UsbSensorSetup(app.state.phase3_service)
     yield
+    if app.state.usb_sensor is not None:
+        app.state.usb_sensor.stop()
     if app.state.phase3_service is not None:
         app.state.phase3_service.shutdown()
     if app.state.batch_service is not None:
@@ -88,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix=settings.api_prefix)
     app.include_router(batch_router, prefix=settings.api_prefix)
     app.include_router(phase3_router, prefix=settings.api_prefix)
+    app.include_router(usb_sensor_router, prefix=settings.api_prefix)
     return app
 
 

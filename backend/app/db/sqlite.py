@@ -97,6 +97,7 @@ class SQLiteRepository:
                 result_json TEXT NOT NULL, created_at TEXT NOT NULL,
                 FOREIGN KEY (case_id) REFERENCES cases(id)
             );
+            CREATE INDEX IF NOT EXISTS idx_analysis_case_created ON analysis_runs(case_id, created_at DESC, analysis_id);
             CREATE TABLE IF NOT EXISTS analysis_artifacts (
                 analysis_id TEXT NOT NULL, case_id INTEGER NOT NULL, kind TEXT NOT NULL,
                 item_id TEXT NOT NULL, occurred_at TEXT, severity TEXT, risk INTEGER,

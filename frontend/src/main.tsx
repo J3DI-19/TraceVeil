@@ -11,6 +11,7 @@ import "./sidebar.css";
 import "./typography-refinements.css";
 import "./assistant-chat-refinements.css";
 import "./case-report-refinements.css";
+import "./sensor-monitor.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

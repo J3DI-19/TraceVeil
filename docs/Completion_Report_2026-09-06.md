@@ -3,9 +3,9 @@
 
 **Prepared:** 2026-09-25
 
-**Source set:** Roadmap, frontend completion audit, batch and Steps 9–11 practical-usability and verification records, contribution record, and verified repository history through `7ef17c6`.
+**Source set:** Roadmap, frontend completion audit, batch and Steps 9–11 practical-usability and verification records, contribution record, and verified repository history through `40627d2`.
 
-**Repository snapshot:** `7ef17c6` on branch `main` following the merge of PR #28.
+**Repository snapshot:** `40627d2` on branch `main` following the merge of PR #30.
 
 ## Executive Summary
 
@@ -42,9 +42,10 @@ Traceveil now provides an integrated investigation platform spanning evidence in
 - **Real-Time Delivery Completed:** Step 7 now provides SSE delivery, replay and reconnect handling, authoritative recovery, scope-isolated buffers, backend-authored device state, and response-order guards without changing forensic calculations.
 - **Reporting and Notification Automation Completed:** Step 11 now provides deterministic incident summaries, report export, grounded alert and incident drafts, investigator approval, SMTP delivery controls, automatic processing and grouping, and atomic audit history.
 - **Mainline Integration Completed:** PR #28 merged the verified Steps 7 and 11 delivery into `main` at `7ef17c6` after all required GitHub checks passed.
+- **ESP32 Reference Firmware Added:** PR #30 added a configurable ESP32/DHT22 one-sensor HTTP telemetry sketch, setup and wiring instructions, an example configuration, and a CI compile check. This prepares the firmware path for the Step 12 demonstration; it does not constitute physical-hardware acceptance.
 
 **Overall Progress:**
-The reconciled roadmap contains **176 planned sub-items**, of which **165 are implemented and verified**, for a formal completion rate of **93.8%**. Steps 7 and 11 are complete in addition to the previously completed software areas. The **11 remaining items** are confined to the physical demonstration and hardware acceptance in Step 12.
+The reconciled roadmap contains **176 planned sub-items**, of which **165 are implemented and verified**, for a formal completion rate of **93.8%**. Steps 7 and 11 are complete in addition to the previously completed software areas. The **11 remaining items** are confined to the physical demonstration and hardware acceptance in Step 12. PR #30 adds a compile-checked reference firmware and setup documentation without changing that acceptance count.
 
 ```mermaid
 pie title Overall Roadmap Completion
@@ -271,6 +272,9 @@ pie title Step 11 Progress
 pie title Step 12 Progress
     "Pending" : 11
 ```
+PR #30 supplies compile-checked ESP32/DHT22 reference firmware and setup
+documentation for the demonstration. The checklist remains pending until the
+steps are verified on physical laboratory hardware.
 - [ ] Assemble the Arduino and IoT laboratory setup
 - [ ] Verify normal device telemetry
 - [ ] Verify live dashboard updates
@@ -321,12 +325,12 @@ compact case rows, and the Case Overview dataset panel.
 
 ## Team Ownership & Contributions
 
-The repository contains 73 commits at the recorded `main` snapshot.
+The repository contains 77 commits at the recorded `main` snapshot.
 
-**J3DI (Project Lead)** - *60 verified commits across the J3DI and J3DI-19 author identities*
+**J3DI (Project Lead)** - *64 verified commits across the J3DI and J3DI-19 author identities*
 - **Role:** Documentation, planning, merging, review, and integration oversight.
 - **Key Deliverables:** Repository foundation, frontend architecture, three-phase integration, dataset-scope corrections, blind-evaluation datasets, classification transparency, anomaly attribution, mixed-case analysis, bounded incident handling, case-description UX, safe persisted visualizations, grounded AI chat, local-AI runtime controls, and the compact interactive assistant workspace.
-- **Latest Delivery:** `a94a0fa` removed the redundant settings workspace and simplified the connected application shell. J3DI also merged the refreshed documentation and PR #28, bringing the completed Steps 7 and 11 work into `main` as `7ef17c6`.
+- **Latest Delivery:** PR #30 added the one-sensor ESP32/DHT22 live telemetry reference sketch, example configuration, setup guide, and CI compile check; it was merged as `40627d2`. The earlier PR #28 integration of Steps 7 and 11 remains at `7ef17c6`.
 
 **Aarya (Contributor)** - *10 Commits*
 - **Role:** Backend and Analysis Engineering
@@ -350,4 +354,4 @@ The repository contains 73 commits at the recorded `main` snapshot.
 - **Dataset acceptance:** HAI ICS (300 wide telemetry rows), IoT-23 (1,000 flows), TON_IoT refrigerator (1,000 readings), CASAS Milan (1,000 sensor events), and simulation samples are cataloged with checksums and device descriptions.
 
 ## Closeout Note
-This report is the consolidated handoff record through 25 September 2026 and the `main` merge commit `7ef17c6`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, real-time browser delivery, and reporting and notification automation are embedded in the mainline codebase. Remaining roadmap work is explicitly confined to the 11 physical demonstration and hardware-acceptance items in Step 12.
+This report is the consolidated handoff record through 25 September 2026 and the `main` merge commit `40627d2`. The batch pipeline, authenticated live intake, deterministic analysis, evaluation datasets, classification transparency, mixed-case investigation UX, dataset-aware case explanations, safe visualization engine, grounded local-AI chat, real-time browser delivery, reporting and notification automation, and compile-checked ESP32/DHT22 reference firmware are embedded in the mainline codebase. Remaining roadmap work is explicitly confined to the 11 physical demonstration and hardware-acceptance items in Step 12.
